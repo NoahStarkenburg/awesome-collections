@@ -26,17 +26,23 @@ USER_AGENT = "dep-upgrade-skill/0.1 (+https://github.com/NoahStarkenburg/awesome
 
 
 def parse_semver(v: str) -> tuple[int, int, int, str]:
-    """Parse 'x.y.z[-pre]' into a comparable tuple. Best-effort.
+    """Parse 'x.y.z[suffix]' into a comparable tuple. Best-effort across semver and PEP 440.
 
     The fourth element is the prerelease tag, or '~' for stable releases.
-    '~' sorts AFTER any letter, so stable > prerelease, matching semver.
+    '~' sorts AFTER any letter, so stable > prerelease, matching semver semantics.
+
+    Stable: '1.2.3', 'v1.2.3'
+    Prerelease: '1.2.3-alpha', '1.2.3a1', '1.2.3rc1', '1.2.3.dev1', '1.2.3.post1'
     """
     v = v.lstrip("v").strip()
-    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-([\w.-]+))?", v)
+    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", v)
     if not m:
         return (0, 0, 0, v)
-    major, minor, patch, pre = m.groups()
-    return (int(major), int(minor), int(patch), pre or "~")
+    major, minor, patch, suffix = m.groups()
+    suffix = suffix.lstrip("-+.")
+    if re.search(r"[a-zA-Z]", suffix):
+        return (int(major), int(minor), int(patch), suffix)
+    return (int(major), int(minor), int(patch), "~")
 
 
 def is_stable(v: str) -> bool:
@@ -127,6 +133,29 @@ def fetch_npm_metadata(package: str) -> dict:
     return http_get_json(f"https://registry.npmjs.org/{package}")
 
 
+def fetch_pypi_metadata(package: str) -> dict:
+    """Fetch package metadata from PyPI."""
+    return http_get_json(f"https://pypi.org/pypi/{package}/json")
+
+
+def parse_repo_url_pypi(pkg_data: dict) -> str | None:
+    """Extract canonical github URL from PyPI package metadata."""
+    info = pkg_data.get("info") or {}
+    candidates: list[str] = []
+    project_urls = info.get("project_urls") or {}
+    if isinstance(project_urls, dict):
+        candidates.extend(v for v in project_urls.values() if isinstance(v, str))
+    for key in ("home_page", "package_url", "project_url"):
+        val = info.get(key)
+        if isinstance(val, str):
+            candidates.append(val)
+    for url in candidates:
+        m = re.search(r"github\.com[:/]([^/]+)/([^/.\s]+)", url)
+        if m:
+            return f"https://github.com/{m.group(1)}/{m.group(2)}"
+    return None
+
+
 def find_changelog_text(repo_url: str) -> str | None:
     """Try common CHANGELOG paths on the default branch of a github repo."""
     if "github.com" not in repo_url:
@@ -158,15 +187,21 @@ def fetch_release_notes(
     to_version: str,
     ecosystem: str = "npm",
 ) -> dict:
-    if ecosystem != "npm":
-        raise NotImplementedError(f"ecosystem={ecosystem!r} not yet supported (added in later commits)")
+    if ecosystem == "npm":
+        meta = fetch_npm_metadata(package)
+        all_versions = list((meta.get("versions") or {}).keys())
+        repo_url = parse_repo_url(meta)
+    elif ecosystem == "pypi":
+        meta = fetch_pypi_metadata(package)
+        all_versions = list((meta.get("releases") or {}).keys())
+        repo_url = parse_repo_url_pypi(meta)
+    else:
+        raise NotImplementedError(f"ecosystem={ecosystem!r} not supported")
 
-    meta = fetch_npm_metadata(package)
     versions = sorted(
-        (v for v in meta.get("versions", {}) if in_range(v, from_version, to_version)),
+        (v for v in all_versions if in_range(v, from_version, to_version)),
         key=parse_semver,
     )
-    repo_url = parse_repo_url(meta)
     changelog = find_changelog_text(repo_url) if repo_url else None
     # Fall back to GitHub Releases when there's no CHANGELOG file.
     releases = fetch_github_releases(repo_url, versions) if (repo_url and not changelog) else None
