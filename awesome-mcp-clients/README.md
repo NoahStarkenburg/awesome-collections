@@ -24,6 +24,7 @@ _Coming soon._
 
 - **[cline](https://github.com/cline/cline)** — Autonomous coding agent right in your IDE, capable of creating/editing files, executing commands, using the browser, and more with your permission every step of the way. ⭐ 61.4k · TypeScript · Apache-2.0 · updated today
 - **[continue](https://github.com/continuedev/continue)** — ⏩ Source-controlled AI checks, enforceable in CI. Powered by the open-source Continue CLI. ⭐ 33k · TypeScript · Apache-2.0 · updated today
+- **[cursor](https://github.com/cursor/cursor)** — No description. ⭐ 32.8k · — · no-license · updated 1w ago
 - **[zed](https://github.com/zed-industries/zed)** — Code at the speed of thought – Zed is a high-performance, multiplayer code editor from the creators of Atom and Tree-sitter. ⭐ 82k · Rust · NOASSERTION · updated today
 
 ## Coding Agents
