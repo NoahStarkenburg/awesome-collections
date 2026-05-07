@@ -22,7 +22,7 @@ _Coming soon._
 
 ## IDE Extensions & Editors
 
-_Coming soon._
+- **[cline](https://github.com/cline/cline)** — Autonomous coding agent right in your IDE, capable of creating/editing files, executing commands, using the browser, and more with your permission every step of the way. ⭐ 61.4k · TypeScript · Apache-2.0 · updated today
 
 ## Coding Agents
 
