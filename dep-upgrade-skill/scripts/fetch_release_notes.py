@@ -14,15 +14,46 @@ Stdlib only.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sys
+import time
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 USER_AGENT = "dep-upgrade-skill/0.1 (+https://github.com/NoahStarkenburg/awesome-collections)"
+
+CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")) / "dep-upgrade-skill"
+DEFAULT_TTL_SECONDS = 3600  # 1 hour
+_cache_ttl = DEFAULT_TTL_SECONDS  # mutable for --cache-ttl override
+_cache_enabled = True
+
+
+def _cache_path(url: str) -> Path:
+    h = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+    return CACHE_DIR / h
+
+
+def cache_get(url: str) -> bytes | None:
+    if not _cache_enabled:
+        return None
+    p = _cache_path(url)
+    if not p.exists():
+        return None
+    if time.time() - p.stat().st_mtime > _cache_ttl:
+        return None
+    return p.read_bytes()
+
+
+def cache_set(url: str, data: bytes) -> None:
+    if not _cache_enabled:
+        return
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _cache_path(url).write_bytes(data)
 
 
 def parse_semver(v: str) -> tuple[int, int, int, str]:
@@ -57,15 +88,26 @@ def in_range(v: str, lo: str, hi: str) -> bool:
     return plo < pv <= phi
 
 
-def http_get_json(url: str, timeout: int = 15) -> Any:
-    headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+def _request_headers(url: str, accept: str | None = None) -> dict[str, str]:
+    headers = {"User-Agent": USER_AGENT}
+    if accept:
+        headers["Accept"] = accept
     if "api.github.com" in url:
         token = os.environ.get("GITHUB_TOKEN")
         if token:
             headers["Authorization"] = f"Bearer {token}"
-    req = Request(url, headers=headers)
+    return headers
+
+
+def http_get_json(url: str, timeout: int = 15) -> Any:
+    cached = cache_get(url)
+    if cached is not None:
+        return json.loads(cached)
+    req = Request(url, headers=_request_headers(url, accept="application/json"))
     with urlopen(req, timeout=timeout) as r:
-        return json.load(r)
+        body = r.read()
+    cache_set(url, body)
+    return json.loads(body)
 
 
 def repo_slug(repo_url: str) -> str | None:
@@ -108,9 +150,14 @@ def fetch_github_releases(repo_url: str, versions: list[str]) -> list[dict] | No
 
 
 def http_get_text(url: str, timeout: int = 15) -> str:
-    req = Request(url, headers={"User-Agent": USER_AGENT})
+    cached = cache_get(url)
+    if cached is not None:
+        return cached.decode("utf-8", errors="replace")
+    req = Request(url, headers=_request_headers(url))
     with urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", errors="replace")
+        body = r.read()
+    cache_set(url, body)
+    return body.decode("utf-8", errors="replace")
 
 
 def parse_repo_url(pkg_data: dict) -> str | None:
@@ -226,7 +273,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--from", dest="from_version", required=True, help="lower bound version (exclusive)")
     p.add_argument("--to", dest="to_version", required=True, help="upper bound version (inclusive)")
     p.add_argument("--ecosystem", default="npm", choices=["npm", "pypi"], help="package registry to query")
+    p.add_argument("--no-cache", action="store_true", help="bypass disk cache for this run")
+    p.add_argument("--cache-ttl", type=int, default=DEFAULT_TTL_SECONDS, help="cache TTL in seconds (default 3600)")
     args = p.parse_args(argv)
+    global _cache_enabled, _cache_ttl
+    _cache_enabled = not args.no_cache
+    _cache_ttl = args.cache_ttl
     try:
         result = fetch_release_notes(
             args.package, args.from_version, args.to_version, args.ecosystem
