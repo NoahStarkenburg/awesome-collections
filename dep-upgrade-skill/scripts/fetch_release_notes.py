@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from typing import Any
@@ -51,9 +52,53 @@ def in_range(v: str, lo: str, hi: str) -> bool:
 
 
 def http_get_json(url: str, timeout: int = 15) -> Any:
-    req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+    if "api.github.com" in url:
+        token = os.environ.get("GITHUB_TOKEN")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+    req = Request(url, headers=headers)
     with urlopen(req, timeout=timeout) as r:
         return json.load(r)
+
+
+def repo_slug(repo_url: str) -> str | None:
+    """Extract 'owner/repo' from a github URL."""
+    if "github.com" not in repo_url:
+        return None
+    parts = repo_url.rstrip("/").split("github.com/", 1)
+    if len(parts) != 2:
+        return None
+    return parts[1]
+
+
+def fetch_github_releases(repo_url: str, versions: list[str]) -> list[dict] | None:
+    """Pull GitHub Releases for `repo_url` and filter to those matching `versions`.
+
+    Used as a fallback when no CHANGELOG file is in the repo. Returns None on network
+    failure or non-github repos.
+    """
+    slug = repo_slug(repo_url)
+    if not slug:
+        return None
+    try:
+        data = http_get_json(f"https://api.github.com/repos/{slug}/releases?per_page=100")
+    except (HTTPError, URLError):
+        return None
+
+    wanted = {v for v in versions}
+    out: list[dict] = []
+    for r in data:
+        tag = (r.get("tag_name") or "").lstrip("v")
+        if tag in wanted:
+            out.append({
+                "version": tag,
+                "name": r.get("name") or "",
+                "body": r.get("body") or "",
+                "published_at": r.get("published_at") or "",
+                "html_url": r.get("html_url") or "",
+            })
+    return out
 
 
 def http_get_text(url: str, timeout: int = 15) -> str:
@@ -123,6 +168,8 @@ def fetch_release_notes(
     )
     repo_url = parse_repo_url(meta)
     changelog = find_changelog_text(repo_url) if repo_url else None
+    # Fall back to GitHub Releases when there's no CHANGELOG file.
+    releases = fetch_github_releases(repo_url, versions) if (repo_url and not changelog) else None
 
     return {
         "package": package,
@@ -132,6 +179,7 @@ def fetch_release_notes(
         "repo_url": repo_url,
         "versions": versions,
         "changelog_raw": changelog,
+        "releases": releases,
     }
 
 
