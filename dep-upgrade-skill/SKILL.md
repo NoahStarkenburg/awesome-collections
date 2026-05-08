@@ -101,10 +101,75 @@ For each symbol that matches **at least one breaking section** AND **at least on
 record the file paths + line numbers. A symbol with zero hits in the user's repo is
 nothing to report — that breaking change doesn't apply.
 
-## Step 5 — Report (template added in next commit)
+## Step 5 — Affected-lines report
 
-The reporter takes the (section × symbol × hits) cross-product and renders the markdown
-report. Format and example output are wired up in the next commit.
+Render a markdown report grouped **by breaking-change section**. Within each section, list
+each matched symbol with its repo hits as `path:line` refs and a one-line context excerpt.
+Symbols with zero repo hits are dropped — only show the user what actually affects them.
+
+Output template:
+
+````
+# Upgrade impact: <pkg> <from> → <to>
+
+Found **<N>** breaking change(s) that affect this repo across **<M>** file(s).
+Versions covered: <v1>, <v2>, …
+Source: <CHANGELOG.md | GitHub Releases>
+
+---
+
+## <Heading of first breaking section>
+
+> <first ~200 chars of the section content>
+
+Affected symbols and call sites:
+
+- `<symbol1>` — <K> hit(s)
+  - `path/to/file.ts:42` — `<context line>`
+  - `path/to/other.ts:108` — `<context line>`
+- `<symbol2>` — <K> hit(s)
+  - `path/to/file.ts:99` — `<context line>`
+
+## <Heading of second breaking section>
+…
+
+---
+
+## Symbols with no hits in this repo
+
+These breaking changes do not appear to affect this repo, but verify manually for
+indirect usage (re-exports, dynamic dispatch, string-keyed access):
+
+`symbolA`, `symbolB`, `symbolC`
+````
+
+Rules for the report:
+
+- **Order sections** by `start_line` from the changelog (chronological).
+- **Order symbols within a section** by hit count desc, then alphabetically.
+- **Context excerpt** is the matched line, trimmed to ~80 chars, with leading whitespace
+  collapsed. Don't paste full source.
+- **Cap hits per symbol** at 5 in the report; if more, say `… and <N> more`.
+- **Cap symbols per section** at 10 in the report; if more, summarize the rest as a
+  comma-separated list at the bottom of the section.
+- If `extract_breaking` returned `needs_review: true`, replace the per-section report with:
+
+  ```
+  ## Manual review required
+
+  No structured breaking-change section was detected. Reason: <review_reason>
+
+  Raw release notes are pasted below — read them and let me know what to grep for.
+
+  ---
+  <raw_text trimmed to ~3000 chars>
+  ```
+
+- End with a single-line **"Total: X file(s) need review across Y change(s)."** so the
+  user has a one-glance number.
+
+Don't editorialize on severity, don't suggest fixes, don't recommend "this is safe to
+upgrade". The skill reports facts; the user decides.
 
 ## Activation prompt
 
