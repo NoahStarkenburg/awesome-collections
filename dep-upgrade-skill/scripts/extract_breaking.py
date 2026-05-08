@@ -5,6 +5,9 @@ Pipeline:
   1. Find breaking-change sections (regex on markdown headings).
   2. For each section, extract candidate symbols (backticks, ALL_CAPS, CamelCase,
      snake_case() calls). These are what `grep` will hunt for in the user's repo.
+  3. If no breaking sections were found, set `needs_review` and return the raw
+     text so the orchestrator can surface it for human review instead of
+     silently dropping the upgrade.
 
 Stdlib only.
 
@@ -26,6 +29,18 @@ BREAKING_PATTERNS = [
 ]
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.M)
+
+# Phrases that suggest the input is a real changelog even without a 'Breaking' heading.
+CHANGELOG_HINT_RE = re.compile(
+    r"(?:^##\s*\[?\d+\.\d+|^v?\d+\.\d+\.\d+|changelog|release notes|unreleased)",
+    re.I | re.M,
+)
+# Words that often introduce breaking changes inline when there's no dedicated section.
+INLINE_BREAKING_RE = re.compile(
+    r"\b(removed|deprecated|renamed|replaced|no longer|breaking|drop(?:ped)?\s+support|"
+    r"requires?\s+\w+\s+\d|backwards?[ -]incompatible)\b",
+    re.I,
+)
 
 # Symbol-extraction regexes. Order matters — backticks are most reliable.
 BACKTICK_RE = re.compile(r"`([^`\n]{1,80})`")
@@ -122,11 +137,63 @@ def extract_symbols(content: str) -> list[str]:
     return [s for s, _ in sorted(found.items(), key=lambda kv: (-kv[1], kv[0]))]
 
 
+def looks_like_changelog(text: str) -> bool:
+    """Heuristic: does this text look like release notes at all?"""
+    return bool(CHANGELOG_HINT_RE.search(text))
+
+
+def analyze(text: str) -> dict:
+    """Top-level entry. Returns sections, per-section symbols, and a review flag.
+
+    When no breaking sections are detected, sets `needs_review=True` and includes
+    the raw text plus a reason. The orchestrator should surface this to the user
+    instead of treating "no sections" as "no breaking changes".
+    """
+    sections = find_breaking_sections(text)
+    for s in sections:
+        s["symbols"] = extract_symbols(s["content"])
+
+    needs_review = False
+    review_reason = None
+    if not sections:
+        if not text.strip():
+            review_reason = "Input was empty."
+            needs_review = True
+        elif looks_like_changelog(text):
+            if INLINE_BREAKING_RE.search(text):
+                review_reason = (
+                    "Looks like a changelog with inline breaking-change language "
+                    "(removed/deprecated/renamed/etc.) but no dedicated 'Breaking' "
+                    "heading. Surface raw text for human review."
+                )
+            else:
+                review_reason = (
+                    "Looks like a changelog but no 'Breaking' heading was found. "
+                    "Author may use a non-standard format — surface raw text."
+                )
+            needs_review = True
+        else:
+            review_reason = (
+                "Input does not look like a markdown changelog. Surface raw "
+                "text for manual review."
+            )
+            needs_review = True
+
+    return {
+        "sections": sections,
+        "needs_review": needs_review,
+        "review_reason": review_reason,
+        "raw_text": text if needs_review else None,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         description="Extract 'Breaking changes' sections and symbols from a CHANGELOG.",
     )
     p.add_argument("path", nargs="?", help="path to CHANGELOG file (omit to read stdin)")
+    p.add_argument("--sections-only", action="store_true",
+                   help="emit only the sections array (skip needs_review/raw_text)")
     args = p.parse_args(argv)
 
     if args.path:
@@ -135,10 +202,13 @@ def main(argv: list[str] | None = None) -> int:
     else:
         text = sys.stdin.read()
 
-    sections = find_breaking_sections(text)
-    for s in sections:
-        s["symbols"] = extract_symbols(s["content"])
-    json.dump({"sections": sections}, sys.stdout, indent=2)
+    if args.sections_only:
+        sections = find_breaking_sections(text)
+        for s in sections:
+            s["symbols"] = extract_symbols(s["content"])
+        json.dump({"sections": sections}, sys.stdout, indent=2)
+    else:
+        json.dump(analyze(text), sys.stdout, indent=2)
     print()
     return 0
 
