@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Extract 'Breaking changes' sections from CHANGELOG markdown.
+"""Extract 'Breaking changes' sections and the symbols they mention from a CHANGELOG.
 
-v1: regex-based section detection. Handles the most common heading conventions:
-    ## Breaking Changes
-    ### BREAKING CHANGES
-    ## 💥 Breaking
-    ### Breaking
+Pipeline:
+  1. Find breaking-change sections (regex on markdown headings).
+  2. For each section, extract candidate symbols (backticks, ALL_CAPS, CamelCase,
+     snake_case() calls). These are what `grep` will hunt for in the user's repo.
 
-Stdlib only. Symbol extraction (separate concern) lives in a sibling commit.
+Stdlib only.
 
 Usage:
     python extract_breaking.py CHANGELOG.md
@@ -20,30 +19,44 @@ import json
 import re
 import sys
 
-# A heading is considered "breaking" if its text (stripped of decorations) matches.
 BREAKING_PATTERNS = [
     re.compile(r"^breaking\s*changes?$", re.I),
     re.compile(r"^breaking$", re.I),
-    re.compile(r"^major\s+changes?$", re.I),  # some projects use this synonym
+    re.compile(r"^major\s+changes?$", re.I),
 ]
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.M)
 
+# Symbol-extraction regexes. Order matters — backticks are most reliable.
+BACKTICK_RE = re.compile(r"`([^`\n]{1,80})`")
+CALL_RE = re.compile(r"\b([a-z_][a-z0-9_]*)\s*\(")
+DOTTED_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+)")
+CAMEL_RE = re.compile(r"\b([A-Z][a-z]+(?:[A-Z][a-z0-9]+)+)\b")
+ALLCAPS_RE = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
+
+# Words to drop from CamelCase/ALLCAPS hits — these are English, not symbols.
+STOPWORDS = {
+    "API", "APIS", "URL", "URLS", "URI", "URIS", "JSON", "YAML", "TOML", "XML",
+    "HTTP", "HTTPS", "TLS", "SSL", "DNS", "TCP", "UDP", "IP",
+    "CSS", "HTML", "JS", "TS", "DOM",
+    "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS",
+    "TODO", "FIXME", "NOTE", "WARNING", "ERROR", "INFO", "DEBUG",
+    "ID", "IDS", "UUID", "UUIDS",
+    "OS", "CPU", "GPU", "RAM", "IO", "FS",
+    "AKA", "FAQ", "RFC", "PR", "PRS", "CI", "CD", "PHP", "SDK",
+    "BREAKING", "CHANGES", "CHANGE", "MAJOR", "MINOR",
+    "NodeJs", "JavaScript", "TypeScript", "GitHub", "GitLab",
+}
+
 
 def _normalize_heading(title: str) -> str:
-    """Strip emoji, brackets, and other decorations from a heading title."""
-    # Drop emoji/symbol prefixes by removing leading non-word, non-space chars
     cleaned = re.sub(r"^[^\w]+", "", title).strip()
-    # Drop trailing decorations like " ⚠" or ":"
     cleaned = re.sub(r"[^\w\s]+$", "", cleaned).strip()
-    # Collapse whitespace
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    return cleaned
+    return re.sub(r"\s+", " ", cleaned)
 
 
 def is_breaking_heading(title: str) -> bool:
-    norm = _normalize_heading(title)
-    return any(p.match(norm) for p in BREAKING_PATTERNS)
+    return any(p.match(_normalize_heading(title)) for p in BREAKING_PATTERNS)
 
 
 def find_breaking_sections(text: str) -> list[dict]:
@@ -61,18 +74,58 @@ def find_breaking_sections(text: str) -> list[dict]:
             continue
         start = m.end()
         end = headings[i + 1].start() if i + 1 < len(headings) else len(text)
-        content = text[start:end].strip()
         out.append({
             "heading": title,
             "depth": depth,
             "start_line": text.count("\n", 0, m.start()) + 1,
-            "content": content,
+            "content": text[start:end].strip(),
         })
     return out
 
 
+def extract_symbols(content: str) -> list[str]:
+    """Pull likely symbol names (functions, classes, constants, options) from prose.
+
+    Heuristic-based. Returns a deduped list ordered by extraction weight: backticks
+    rank highest, then dotted refs / snake_case() calls, then CamelCase / ALL_CAPS.
+    Stopwords cut English noise.
+    """
+    found: dict[str, int] = {}
+
+    def add(sym: str, weight: int) -> None:
+        sym = sym.strip().strip(".,;:()[]{}'\"")
+        if not sym or sym.upper() in STOPWORDS or sym in STOPWORDS:
+            return
+        if len(sym) < 2 or sym.isdigit():
+            return
+        found[sym] = max(found.get(sym, 0), weight)
+
+    for m in BACKTICK_RE.finditer(content):
+        token = m.group(1).strip()
+        # Drop multi-word backtick spans unless they contain a call/dot (English in code voice).
+        if " " in token and not re.search(r"[(.]", token):
+            continue
+        add(token, weight=4)
+
+    for m in DOTTED_RE.finditer(content):
+        add(m.group(1), weight=3)
+
+    for m in CALL_RE.finditer(content):
+        add(m.group(1) + "()", weight=3)
+
+    for m in CAMEL_RE.finditer(content):
+        add(m.group(1), weight=2)
+
+    for m in ALLCAPS_RE.finditer(content):
+        add(m.group(1), weight=2)
+
+    return [s for s, _ in sorted(found.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Extract 'Breaking changes' sections from a CHANGELOG markdown.")
+    p = argparse.ArgumentParser(
+        description="Extract 'Breaking changes' sections and symbols from a CHANGELOG.",
+    )
     p.add_argument("path", nargs="?", help="path to CHANGELOG file (omit to read stdin)")
     args = p.parse_args(argv)
 
@@ -83,9 +136,11 @@ def main(argv: list[str] | None = None) -> int:
         text = sys.stdin.read()
 
     sections = find_breaking_sections(text)
-    json.dump(sections, sys.stdout, indent=2)
+    for s in sections:
+        s["symbols"] = extract_symbols(s["content"])
+    json.dump({"sections": sections}, sys.stdout, indent=2)
     print()
-    return 0 if sections else 0  # not finding any is not an error
+    return 0
 
 
 if __name__ == "__main__":
