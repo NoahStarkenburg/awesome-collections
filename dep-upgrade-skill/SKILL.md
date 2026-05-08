@@ -23,17 +23,40 @@ against the user's code.
 ## Inputs to extract from the user's request
 
 1. **Package name** (e.g. `react`, `express`, `requests`)
-2. **From version** — current version. If user didn't say, read it from the manifest.
+2. **From version** — current version. If user didn't say, run manifest detection (below)
+   and read it from there.
 3. **To version** — target version. If user said "latest" or didn't specify, fetch the latest
    from the registry.
 4. **Repo path** — defaults to the current working directory.
 
 If any of these are ambiguous, ask the user once before proceeding.
 
+## Step 1 — Manifest detection
+
+Run `scripts/detect_manifest.py <repo-path> --package <name>`. The script scans for
+`package.json` (npm), `pyproject.toml` (pypi), and `Cargo.toml` (cargo) at the repo root
+and emits JSON like:
+
+```json
+{"manifests": [
+  {"path": "package.json", "ecosystem": "npm",
+   "dependencies": {"react": "^18.2.0"}}
+]}
+```
+
+Use this output to:
+- **Pick the ecosystem** for `fetch_release_notes.py --ecosystem <npm|pypi>` (cargo is not
+  yet supported by the fetcher — fall back to "manual review" if Cargo is the only manifest).
+- **Resolve `--from`** when the user didn't say. Strip semver-range prefixes (`^`, `~`, `>=`)
+  to get a concrete version to pass to the fetcher.
+- **Disambiguate** when more than one manifest matches the package — ask the user which one.
+
+If `detect_manifest.py` exits 1 (no manifests found), tell the user the skill needs at least
+one of `package.json`, `pyproject.toml`, or `Cargo.toml` at the repo root, then stop.
+
 ## Pipeline (orchestration)
 
-The detailed flow is added in subsequent commits. For now, the skill is a stub that confirms
-activation and prints the parsed inputs.
+Remaining steps (fetch → extract → grep → report) are added in subsequent commits.
 
 ## Activation behavior (current stub)
 
