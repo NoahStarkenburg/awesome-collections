@@ -33,15 +33,44 @@ source .venv/bin/activate   # PowerShell: .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
 
-System dependencies (added piece-by-piece as features land):
+## System dependencies
 
-- **Tesseract OCR** — required by the OCR pipeline (not yet wired). Install:
-  - Windows: `winget install --id UB-Mannheim.TesseractOCR`
-  - macOS: `brew install tesseract`
-  - Linux (Debian/Ubuntu): `sudo apt install tesseract-ocr`
+### Tesseract OCR (required for `index_directory`, `search_text`, `extract_text`)
 
-- **CLIP model files** — auto-downloaded by `open-clip-torch` on first use
-  (~150 MB for ViT-B/32). No manual setup.
+The OCR pipeline shells out to the Tesseract binary via `pytesseract`. Install:
+
+| OS | Command | Verify |
+| --- | --- | --- |
+| Windows | `winget install --id UB-Mannheim.TesseractOCR` | `tesseract --version` |
+| macOS | `brew install tesseract` | `tesseract --version` |
+| Debian/Ubuntu | `sudo apt install tesseract-ocr` | `tesseract --version` |
+| Fedora | `sudo dnf install tesseract` | `tesseract --version` |
+| Arch | `sudo pacman -S tesseract tesseract-data-eng` | `tesseract --version` |
+
+**Expected version:** 5.0 or later. The output of `tesseract --version` should
+show `tesseract 5.x.y` and at least one language under `Available languages` —
+typically `eng` for English. Without a language pack, OCR returns empty strings.
+
+**Windows path note:** the UB-Mannheim installer registers Tesseract on `PATH`
+automatically. If `pytesseract` can't find it, point at the binary explicitly:
+
+```python
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+```
+
+You can also set the `TESSERACT_CMD` env var before starting the server, and the
+OCR wrapper will pick it up.
+
+### CLIP model files (required for `search_visual`, `find_similar`)
+
+Auto-downloaded by `open-clip-torch` on first use (~150 MB for ViT-B/32 weights).
+Cached under `~/.cache/clip/`. The first call to `search_visual` may take
+30–60 seconds while the model loads. Subsequent calls are fast.
+
+GPU is **not required**. ViT-B/32 runs on CPU at roughly 30 images/second on a
+modern laptop. To enable CUDA, install a CUDA-matched PyTorch build before
+installing this package — see the [open_clip docs](https://github.com/mlfoundations/open_clip).
 
 ## Run the server (development)
 
