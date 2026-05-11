@@ -1,16 +1,16 @@
-"""CLIP model loader.
+"""CLIP model loader + image/text embedding passes.
 
-Loads `open_clip` ViT-B/32 with CPU-friendly defaults. The model is heavy
-(~150 MB weights + Torch state) so we lazy-load on first call — server
-startup stays fast and `ping` works without ever loading CLIP.
-
-Image and text embedding passes are added in sibling commits.
+Loads `open_clip` ViT-B/32 lazily so server startup stays fast — `ping` works
+without ever loading CLIP. Embedding functions normalize vectors to unit length
+and serialize them as float32 BLOBs for the `embeddings` table.
 """
 from __future__ import annotations
 
 import logging
 import os
+import struct
 import threading
+from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -80,3 +80,39 @@ def reset() -> None:
     """Drop the cached model. Test-only — releases memory between runs."""
     with _lock:
         _state.clear()
+
+
+def _vector_to_blob(vec) -> bytes:
+    """Pack a torch tensor / numpy array / iterable of floats as little-endian float32."""
+    if hasattr(vec, "detach"):
+        vec = vec.detach().cpu().numpy()
+    if hasattr(vec, "tolist"):
+        vec = vec.tolist()
+    flat = list(vec[0]) if isinstance(vec, list) and vec and isinstance(vec[0], list) else list(vec)
+    return struct.pack(f"<{len(flat)}f", *flat)
+
+
+def embed_image(image_path: str | Path) -> bytes:
+    """Compute the L2-normalized CLIP embedding for an image. Returns float32 BLOB.
+
+    Raises FileNotFoundError if the path doesn't exist; ImportError if open_clip
+    isn't installed. Other I/O / model errors propagate so the caller can decide
+    whether to skip-and-continue or surface.
+    """
+    path = Path(image_path)
+    if not path.is_file():
+        raise FileNotFoundError(image_path)
+
+    state = load()
+    torch = state["torch"]
+    from PIL import Image  # type: ignore[import-not-found]
+
+    with Image.open(path) as img:
+        img = img.convert("RGB")
+        tensor = state["preprocess"](img).unsqueeze(0).to(state["device"])
+
+    with torch.no_grad():
+        features = state["model"].encode_image(tensor)
+        features = features / features.norm(dim=-1, keepdim=True)
+
+    return _vector_to_blob(features.squeeze(0))
