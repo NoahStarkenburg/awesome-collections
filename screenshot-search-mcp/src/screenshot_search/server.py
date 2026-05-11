@@ -115,6 +115,55 @@ def index_directory(path: str, recursive: bool = True) -> dict:
     return payload
 
 
+@mcp.tool()
+def search_text(query: str, since: str | None = None, max_results: int = 10) -> dict:
+    """Full-text search the OCR'd text of indexed screenshots.
+
+    Args:
+        query: FTS5 query string. Plain words work; quote phrases for exact match.
+        since: optional ISO-8601 timestamp or epoch seconds — restrict to files
+            modified after this time. Examples: "2026-04-01", "1714521600".
+        max_results: cap on returned rows.
+
+    Returns: {results: [{path, mtime, size, ocr_text_excerpt, score}, ...], count}.
+    """
+    conn = _get_conn()
+    since_ts: float | None = None
+    if since is not None and since != "":
+        since_ts = _parse_since(since)
+
+    rows = store.search_text(conn, query, since=since_ts, max_results=max_results)
+    return {
+        "count": len(rows),
+        "results": [
+            {
+                "path": r["path"],
+                "mtime": float(r["mtime"]),
+                "size": int(r["size"]),
+                "ocr_text_excerpt": (r["ocr_text"] or "")[:200],
+                "score": float(r["score"]),
+            }
+            for r in rows
+        ],
+    }
+
+
+def _parse_since(value: str) -> float:
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    from datetime import datetime, timezone
+
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            dt = datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+            return dt.timestamp()
+        except ValueError:
+            continue
+    raise ValueError(f"Cannot parse `since`: {value!r}")
+
+
 def main() -> None:
     """Console-script entry point — runs the server over stdio."""
     mcp.run()
