@@ -116,3 +116,24 @@ def embed_image(image_path: str | Path) -> bytes:
         features = features / features.norm(dim=-1, keepdim=True)
 
     return _vector_to_blob(features.squeeze(0))
+
+
+def embed_text(query: str) -> list[float]:
+    """Compute the L2-normalized CLIP embedding for a text query.
+
+    Returns a Python list of floats (not a BLOB) — callers feed this directly
+    into `store.nearest_neighbors`, which expects an unwrapped vector.
+    """
+    if not query.strip():
+        raise ValueError("Empty query")
+
+    state = load()
+    torch = state["torch"]
+    tokenizer = state["tokenizer"]
+
+    tokens = tokenizer([query]).to(state["device"])
+    with torch.no_grad():
+        features = state["model"].encode_text(tokens)
+        features = features / features.norm(dim=-1, keepdim=True)
+
+    return features.squeeze(0).detach().cpu().tolist()
