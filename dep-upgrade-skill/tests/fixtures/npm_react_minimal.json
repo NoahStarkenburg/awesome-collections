@@ -1,0 +1,15 @@
+{
+  "name": "react",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/facebook/react.git",
+    "directory": "packages/react"
+  },
+  "versions": {
+    "18.2.0": {"version": "18.2.0"},
+    "18.3.0": {"version": "18.3.0"},
+    "18.3.1": {"version": "18.3.1"},
+    "19.0.0-rc.0": {"version": "19.0.0-rc.0"},
+    "19.0.0": {"version": "19.0.0"}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "info": {
+    "name": "requests",
+    "project_urls": {
+      "Source": "https://github.com/psf/requests",
+      "Documentation": "https://requests.readthedocs.io/"
+    }
+  },
+  "releases": {
+    "2.30.0": [{}],
+    "2.31.0": [{}],
+    "2.32.0": [{}],
+    "2.32.0rc1": [{}],
+    "2.32.1": [{}]
+  }
+}
