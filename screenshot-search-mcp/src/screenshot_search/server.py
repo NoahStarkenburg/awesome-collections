@@ -70,6 +70,28 @@ def ping() -> dict:
 
 
 @mcp.tool()
+def index_status() -> dict:
+    """Report current index state: total rows, embedding count, last index run.
+
+    Use this to confirm what's actually been indexed before running searches.
+    """
+    conn = _get_conn()
+    total = conn.execute("SELECT COUNT(*) AS c FROM images").fetchone()["c"]
+    embedded = conn.execute("SELECT COUNT(*) AS c FROM embeddings").fetchone()["c"]
+    last = conn.execute(
+        "SELECT path, indexed_at FROM images ORDER BY indexed_at DESC LIMIT 1"
+    ).fetchone()
+    return {
+        "db_path": str(_db_path()),
+        "total_images": int(total),
+        "total_embeddings": int(embedded),
+        "last_indexed_path": None if last is None else last["path"],
+        "last_indexed_at": None if last is None else float(last["indexed_at"]),
+        "last_run": _last_result,
+    }
+
+
+@mcp.tool()
 def index_directory(path: str, recursive: bool = True) -> dict:
     """Scan a directory for images and OCR-index any new or changed files.
 
