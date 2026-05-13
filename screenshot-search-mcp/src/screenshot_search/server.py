@@ -21,7 +21,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, index, store
+from . import __version__, clip, index, store
 
 mcp = FastMCP(
     name="screenshot-search",
@@ -144,6 +144,50 @@ def search_text(query: str, since: str | None = None, max_results: int = 10) -> 
                 "score": float(r["score"]),
             }
             for r in rows
+        ],
+    }
+
+
+@mcp.tool()
+def search_visual(query: str, since: str | None = None, max_results: int = 10) -> dict:
+    """Visual search via CLIP text-query embedding + cosine similarity.
+
+    Args:
+        query: natural-language description ("error dialog with red button").
+        since: optional ISO-8601 timestamp or epoch seconds — same shape as `search_text`.
+        max_results: cap on returned rows.
+
+    Returns: {results: [{path, mtime, size, score}, ...], count, model}.
+
+    Requires `open_clip_torch` and ~150 MB of ViT-B/32 weights (downloaded on
+    first call). If the CLIP loader fails, returns {"error": "..."} instead of
+    raising — Claude/other clients should surface the message to the user.
+    """
+    conn = _get_conn()
+    since_ts: float | None = None
+    if since is not None and since != "":
+        since_ts = _parse_since(since)
+
+    try:
+        query_vec = clip.embed_text(query)
+    except (ImportError, ValueError) as exc:
+        return {"error": str(exc), "results": [], "count": 0}
+
+    pairs = store.nearest_neighbors(
+        conn, query_vec, clip.model_tag(),
+        max_results=max_results, since=since_ts,
+    )
+    return {
+        "model": clip.model_tag(),
+        "count": len(pairs),
+        "results": [
+            {
+                "path": row["path"],
+                "mtime": float(row["mtime"]),
+                "size": int(row["size"]),
+                "score": float(score),
+            }
+            for row, score in pairs
         ],
     }
 
