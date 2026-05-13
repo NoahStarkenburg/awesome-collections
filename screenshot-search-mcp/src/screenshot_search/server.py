@@ -258,6 +258,78 @@ def extract_text(image_path: str, lang: str = "eng") -> dict:
     return {"path": str(target), "text": text, "length": len(text)}
 
 
+@mcp.tool()
+def get_metadata(image_path: str) -> dict:
+    """Return filesystem stats, EXIF tags, and current index status for an image.
+
+    Useful for "when was this screenshot taken?" or "is this in the index yet?"
+    questions. EXIF is optional — most screenshots don't carry it.
+    """
+    target = Path(image_path).expanduser().resolve()
+    if not target.is_file():
+        return {"error": f"Not a file: {target}"}
+
+    stat = target.stat()
+    out: dict = {
+        "path": str(target),
+        "size": int(stat.st_size),
+        "mtime": float(stat.st_mtime),
+        "ctime": float(stat.st_ctime),
+    }
+
+    try:
+        from PIL import Image, ExifTags  # type: ignore[import-not-found]
+        with Image.open(target) as img:
+            out["width"], out["height"] = img.size
+            out["format"] = img.format
+            out["mode"] = img.mode
+            exif_raw = img.getexif()
+            if exif_raw:
+                out["exif"] = {
+                    ExifTags.TAGS.get(tag, str(tag)): _safe_exif_value(val)
+                    for tag, val in exif_raw.items()
+                }
+    except Exception as exc:  # PIL not installed, unreadable image, etc.
+        out["image_info_error"] = str(exc)
+
+    conn = _get_conn()
+    row = store.get_by_path(conn, str(target))
+    if row is not None:
+        out["indexed"] = {
+            "id": int(row["id"]),
+            "indexed_at": float(row["indexed_at"]),
+            "ocr_text_length": len(row["ocr_text"] or ""),
+            "has_embedding": _has_embedding(conn, int(row["id"]), clip.model_tag()),
+        }
+    else:
+        out["indexed"] = None
+    return out
+
+
+def _has_embedding(conn, image_id: int, model: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM embeddings WHERE image_id = ? AND model = ? LIMIT 1",
+        (image_id, model),
+    ).fetchone()
+    return row is not None
+
+
+def _safe_exif_value(val):
+    """EXIF values can be IFDRational, bytes, tuples — coerce to JSON-friendly."""
+    if isinstance(val, bytes):
+        try:
+            return val.decode("utf-8", errors="replace")
+        except Exception:
+            return repr(val)
+    if isinstance(val, (list, tuple)):
+        return [_safe_exif_value(v) for v in val]
+    if hasattr(val, "numerator") and hasattr(val, "denominator"):
+        return float(val) if val.denominator else 0.0
+    if isinstance(val, (int, float, str, bool)) or val is None:
+        return val
+    return str(val)
+
+
 def _parse_since(value: str) -> float:
     try:
         return float(value)
