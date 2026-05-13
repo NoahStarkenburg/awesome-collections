@@ -192,6 +192,54 @@ def search_visual(query: str, since: str | None = None, max_results: int = 10) -
     }
 
 
+@mcp.tool()
+def find_similar(image_path: str, max_results: int = 10) -> dict:
+    """Find images in the index visually similar to the given image (image-to-image).
+
+    Args:
+        image_path: path to a reference image (does NOT need to be in the index).
+        max_results: cap on returned rows. The reference itself is filtered out
+            of the results when it happens to be indexed.
+
+    Returns: {results: [{path, mtime, size, score}, ...], count, model, reference}.
+    """
+    conn = _get_conn()
+    ref = Path(image_path).expanduser().resolve()
+    if not ref.is_file():
+        return {"error": f"Not a file: {ref}", "results": [], "count": 0}
+
+    try:
+        blob = clip.embed_image(ref)
+    except (ImportError, FileNotFoundError, OSError) as exc:
+        return {"error": str(exc), "results": [], "count": 0}
+
+    import struct
+    dim = len(blob) // 4
+    vector = list(struct.unpack(f"<{dim}f", blob))
+
+    pairs = store.nearest_neighbors(
+        conn, vector, clip.model_tag(), max_results=max_results + 1,
+    )
+    out = []
+    for row, score in pairs:
+        if row["path"] == str(ref):
+            continue
+        out.append({
+            "path": row["path"],
+            "mtime": float(row["mtime"]),
+            "size": int(row["size"]),
+            "score": float(score),
+        })
+        if len(out) >= max_results:
+            break
+    return {
+        "model": clip.model_tag(),
+        "reference": str(ref),
+        "count": len(out),
+        "results": out,
+    }
+
+
 def _parse_since(value: str) -> float:
     try:
         return float(value)
