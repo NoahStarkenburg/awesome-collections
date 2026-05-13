@@ -37,3 +37,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/screenshot_search"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
