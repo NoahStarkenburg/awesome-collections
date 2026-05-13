@@ -1,6 +1,6 @@
 [project]
 name = "screenshot-search-mcp"
-version = "0.0.1"
+version = "0.1.0"
 description = "MCP server that indexes screenshots by OCR text and CLIP visual embedding."
 readme = "README.md"
 requires-python = ">=3.11"

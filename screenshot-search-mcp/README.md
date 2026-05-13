@@ -11,7 +11,9 @@ Works with any MCP client — Claude Desktop, Cursor, Cline, Continue, Zed.
 
 ## Status
 
-All seven tools are wired and the SQLite index + watcher are functional. See
+**v0.1.0** — feature-complete for the v1 surface. All eight tools wired, SQLite
+index + FTS5 + CLIP embeddings + watchdog watcher all functional. 23 tests pass
+(17 store unit tests + 6 in-memory MCP protocol e2e tests). See
 [`examples/sample_run.md`](examples/sample_run.md) for what each tool returns
 against a real screenshots folder.
 
@@ -122,6 +124,47 @@ Edit `claude_desktop_config.json` (paths vary by OS — see the
 
 After restarting Claude Desktop, you should see `screenshot-search` in the MCP
 servers panel and `ping` available as a callable tool.
+
+## Config file (optional)
+
+`~/.screenshot-search/config.toml`:
+
+```toml
+db_path           = "~/.screenshot-search/index.db"
+watch_dirs        = ["~/Pictures/Screenshots"]
+debounce_seconds  = 2.0
+recursive         = true
+```
+
+Read by `screenshot_search.config.load()`. The watcher (`watch.py`) honors
+`watch_dirs` and `debounce_seconds`; `db_path` is also overridable via the
+`SCREENSHOT_SEARCH_DB` env var.
+
+## Live watching
+
+```bash
+python -m screenshot_search.watch ~/Pictures/Screenshots --debounce 2.0
+```
+
+Performs an initial scan, then reindexes the parent directory of any image
+that's created or modified — debounced to avoid double-indexing files written
+in two passes by screenshot tools.
+
+## Tests
+
+```bash
+python -m pytest screenshot-search-mcp/tests/
+```
+
+- **`test_store.py`** — 17 cases covering schema, upsert COALESCE, FTS5 trigger
+  sync, embedding round-trip, nearest-neighbor cosine ranking, cascade-delete.
+- **`test_server_e2e.py`** — 6 cases using FastMCP's in-memory `Client` transport
+  to call every tool via the real MCP protocol path (list_tools + call_tool).
+
+CLIP runtime is intentionally not exercised in CI (the ~150 MB model isn't
+something to pull on every test run); `test_visual_tools_degrade_gracefully_without_clip`
+locks in the contract that visual tools return `{"error": "..."}` instead of
+crashing when the model isn't loadable.
 
 ## License
 
