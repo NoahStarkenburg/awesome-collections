@@ -11,9 +11,22 @@ Works with any MCP client — Claude Desktop, Cursor, Cline, Continue, Zed.
 
 ## Status
 
-Early scaffolding. Only the `ping` tool is wired up so far — index/search tools land
-in subsequent commits. See `.local/plans/screenshot-search-mcp.md` for the full build
-plan.
+All seven tools are wired and the SQLite index + watcher are functional. See
+[`examples/sample_run.md`](examples/sample_run.md) for what each tool returns
+against a real screenshots folder.
+
+## Tools
+
+| Tool | What it does |
+| --- | --- |
+| `ping()` | Health check — confirms the server is reachable. |
+| `index_directory(path, recursive)` | Scan a folder and OCR-index new/changed images. |
+| `index_status()` | Report totals, last-indexed file, last run summary. |
+| `search_text(query, since, max_results)` | FTS5 search over OCR'd text. |
+| `search_visual(query, since, max_results)` | CLIP text-to-image search. |
+| `find_similar(image_path, max_results)` | Image-to-image visual similarity. |
+| `extract_text(image_path, lang)` | Single-shot OCR on an arbitrary file. |
+| `get_metadata(image_path)` | File stats, EXIF (when present), index status. |
 
 ## Install (development)
 
