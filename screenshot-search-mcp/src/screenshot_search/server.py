@@ -21,7 +21,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, clip, index, store
+from . import __version__, clip, index, ocr, store
 
 mcp = FastMCP(
     name="screenshot-search",
@@ -238,6 +238,24 @@ def find_similar(image_path: str, max_results: int = 10) -> dict:
         "count": len(out),
         "results": out,
     }
+
+
+@mcp.tool()
+def extract_text(image_path: str, lang: str = "eng") -> dict:
+    """Run OCR on a single image without touching the index.
+
+    Useful for ad-hoc "what's in this screenshot?" questions where the image
+    lives outside the indexed directories.
+
+    Returns: {path, text, length}. Empty `text` means Tesseract found nothing
+    or the binary isn't installed — call `ping` and check the Tesseract install
+    if you expected text.
+    """
+    target = Path(image_path).expanduser().resolve()
+    if not target.is_file():
+        return {"error": f"Not a file: {target}", "text": ""}
+    text = ocr.extract_text(target, lang=lang)
+    return {"path": str(target), "text": text, "length": len(text)}
 
 
 def _parse_since(value: str) -> float:
