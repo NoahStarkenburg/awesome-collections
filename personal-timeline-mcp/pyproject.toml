@@ -1,0 +1,38 @@
+[project]
+name = "personal-timeline-mcp"
+version = "0.0.1"
+description = "MCP server that aggregates local activity (browser history, git commits, filesystem mtimes, calendar) into a unified queryable timeline."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Noah Starkenburg" }]
+keywords = ["mcp", "fastmcp", "timeline", "personal", "history"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "fastmcp>=2.0",
+    "ics>=0.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[project.scripts]
+personal-timeline-mcp = "personal_timeline.server:main"
+personal-timeline     = "personal_timeline.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/personal_timeline"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
