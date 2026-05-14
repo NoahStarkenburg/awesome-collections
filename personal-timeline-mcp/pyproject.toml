@@ -14,7 +14,6 @@ classifiers = [
 ]
 dependencies = [
     "fastmcp>=2.0",
-    "ics>=0.7",
 ]
 
 [project.optional-dependencies]
