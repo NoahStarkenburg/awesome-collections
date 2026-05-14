@@ -4,10 +4,10 @@ Walks one or more local git repositories and yields commit Events. Uses the
 `git` CLI via subprocess — no pygit2 dependency, no libgit2 install.
 
 Public:
-    read_events(repo_path, *, since_ts=None, author_filter=None) -> Iterator[Event]
-
-Author filter (`per-repo last-seen state` and full-history vs incremental) lands
-in a sibling commit.
+    list_commits(repo_path, *, since_ts=None, author_email=None, max_count=None)
+    read_events(repo_path, *, since_ts=None, author_email=None)
+    ingest_repo(conn, repo_path, *, author_email=None) — incremental, uses
+        source_state to remember the last commit ts ingested per repo.
 """
 from __future__ import annotations
 
@@ -114,3 +114,47 @@ def read_events(
                 "files": c["files"],
             },
         )
+
+
+def _source_key(repo_path: Path) -> str:
+    """source_state key for a given repo. Uses absolute path so two `proj/`
+    folders in different parents don't collide."""
+    return f"git:{repo_path.resolve()}"
+
+
+def ingest_repo(
+    conn,
+    repo_path: str | Path,
+    *,
+    author_email: str | None = None,
+) -> dict:
+    """Incrementally ingest a repo into the events table.
+
+    Uses `source_state` to remember the last commit ts processed per repo. On
+    subsequent runs only commits with ts > watermark are re-walked.
+
+    Returns: {repo, ingested, last_event_ts}.
+    """
+    from .. import store
+
+    repo = Path(repo_path).expanduser().resolve()
+    key = _source_key(repo)
+    state = store.get_source_state(conn, key)
+    since_ts: int | None = None
+    if state is not None and state.get("last_event_ts") is not None:
+        since_ts = int(state["last_event_ts"])
+
+    ingested = 0
+    last_ts = since_ts
+    for event in read_events(repo, since_ts=since_ts, author_email=author_email):
+        # The `--since=@<ts>` filter is exclusive on git's side but the cutoff
+        # itself is included occasionally; skip rows we've already stored.
+        if since_ts is not None and event.ts <= since_ts:
+            continue
+        store.upsert_event(conn, event)
+        ingested += 1
+        if last_ts is None or event.ts > last_ts:
+            last_ts = event.ts
+
+    store.update_source_state(conn, key, last_event_ts=last_ts)
+    return {"repo": str(repo), "ingested": ingested, "last_event_ts": last_ts}
