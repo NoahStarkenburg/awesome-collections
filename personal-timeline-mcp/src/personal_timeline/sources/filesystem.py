@@ -85,15 +85,59 @@ def read_events(
     root: str | Path,
     *,
     ignore: set[str] | None = None,
+    since_ts: int | None = None,
 ) -> Iterator[Event]:
     """Yield filesystem Events. `source_id` is the file path so subsequent
-    walks dedupe naturally."""
+    walks dedupe naturally. `since_ts` (unix seconds) filters to files whose
+    integer mtime is > the watermark — matches how we serialize event.ts."""
     for meta in walk(root, ignore=ignore):
+        ts_int = int(meta.mtime)
+        if since_ts is not None and ts_int <= since_ts:
+            continue
         yield Event(
             source="fs",
             source_id=meta.path,
-            ts=int(meta.mtime),
+            ts=ts_int,
             title=Path(meta.path).name,
             body=meta.path,
             payload={"path": meta.path, "size": meta.size, "mtime": meta.mtime},
         )
+
+
+def _source_key(root: Path) -> str:
+    return f"fs:{root.resolve()}"
+
+
+def ingest_directory(
+    conn,
+    root: str | Path,
+    *,
+    ignore: set[str] | None = None,
+) -> dict:
+    """Incrementally ingest filesystem state into the events table.
+
+    Uses source_state to remember the highest mtime processed for `root`. Files
+    whose mtime is <= the watermark are skipped.
+
+    Returns: {root, ingested, last_event_ts}.
+    """
+    from .. import store
+
+    root_path = Path(root).expanduser().resolve()
+    key = _source_key(root_path)
+    state = store.get_source_state(conn, key)
+    since: int | None = None
+    if state is not None and state.get("last_event_ts") is not None:
+        since = int(state["last_event_ts"])
+
+    ingested = 0
+    high_water = since
+    for event in read_events(root_path, ignore=ignore, since_ts=since):
+        store.upsert_event(conn, event)
+        ingested += 1
+        if high_water is None or event.ts > high_water:
+            high_water = event.ts
+
+    if high_water is not None:
+        store.update_source_state(conn, key, last_event_ts=int(high_water))
+    return {"root": str(root_path), "ingested": ingested, "last_event_ts": high_water}
