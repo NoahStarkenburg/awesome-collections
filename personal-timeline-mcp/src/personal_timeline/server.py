@@ -256,6 +256,78 @@ def find_session(query: str, max_results: int = 20) -> dict:
     }
 
 
+@mcp.tool()
+def summarize_workday(date: str | None = None) -> dict:
+    """Aggregate report for one day: per-source counts, git commits, calendar
+    blocks, top edited files.
+
+    Args:
+        date: optional ISO date (`YYYY-MM-DD`); default today (UTC).
+    """
+    from collections import Counter
+    from datetime import datetime, timezone, timedelta
+    import json
+
+    if date is None:
+        day = datetime.now(timezone.utc).date()
+    else:
+        day = datetime.strptime(date, "%Y-%m-%d").date()
+    start = int(datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).timestamp())
+    end = int((datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=1)).timestamp()) - 1
+
+    rows = store.events_in_range(_get_conn(), start_ts=start, end_ts=end, limit=10_000)
+
+    by_source: Counter = Counter()
+    commits: list[dict] = []
+    calendar_blocks: list[dict] = []
+    file_hits: Counter = Counter()
+    first_event_ts: int | None = None
+    last_event_ts: int | None = None
+
+    for row in rows:
+        by_source[row["source"]] += 1
+        ts = int(row["ts"])
+        first_event_ts = ts if first_event_ts is None else min(first_event_ts, ts)
+        last_event_ts = ts if last_event_ts is None else max(last_event_ts, ts)
+        try:
+            payload = json.loads(row["payload_json"] or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        if row["source"] == "git":
+            commits.append({
+                "ts": ts,
+                "sha": payload.get("sha"),
+                "subject": row["title"],
+                "files": payload.get("files") or [],
+            })
+            for f in payload.get("files") or []:
+                file_hits[f] += 1
+        elif row["source"] == "calendar":
+            calendar_blocks.append({
+                "ts": ts,
+                "end_ts": None if row["end_ts"] is None else int(row["end_ts"]),
+                "summary": row["title"],
+                "location": payload.get("location"),
+            })
+        elif row["source"] == "fs":
+            path = payload.get("path")
+            if path:
+                file_hits[path] += 1
+
+    return {
+        "date": str(day),
+        "by_source": dict(by_source),
+        "total_events": sum(by_source.values()),
+        "first_event_ts": first_event_ts,
+        "last_event_ts": last_event_ts,
+        "active_hours": (None if first_event_ts is None or last_event_ts is None
+                          else round((last_event_ts - first_event_ts) / 3600, 1)),
+        "git_commits": commits,
+        "calendar_blocks": calendar_blocks,
+        "top_files": [{"path": p, "hits": n} for p, n in file_hits.most_common(10)],
+    }
+
+
 def _row_touches_path(row, needle: str) -> bool:
     """True if this event's payload mentions `needle` (fs.path or git.files)."""
     import json
