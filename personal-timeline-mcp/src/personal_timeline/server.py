@@ -141,13 +141,20 @@ def index_sources(force_full: bool = False) -> dict:
     errors: list[dict] = []
     total_ingested = 0
 
-    if force_full:
-        conn.execute("DELETE FROM source_state")
+    enabled = [(name, sc) for name, sc in cfg.sources.items() if sc.enabled]
+
+    if force_full and enabled:
+        # Clear watermark state only for the sources we're about to reindex.
+        # Source rows are keyed either as bare `<name>` (browser sources) or
+        # `<name>:<absolute-path>` (git, filesystem) so match both shapes.
+        for name, _sc in enabled:
+            conn.execute(
+                "DELETE FROM source_state WHERE source = ? OR source LIKE ?",
+                (name, f"{name}:%"),
+            )
         conn.commit()
 
-    for name, sc in cfg.sources.items():
-        if not sc.enabled:
-            continue
+    for name, sc in enabled:
         try:
             outcome = _ingest_one(conn, name, sc.options)
         except Exception as exc:  # surface per-source failure, don't kill the run
