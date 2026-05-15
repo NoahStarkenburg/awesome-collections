@@ -1,24 +1,68 @@
 # awesome-collections
 
-A monorepo of curated `awesome-X` lists focused on under-served niches in the AI / developer-tooling space.
+A monorepo of small, useful AI / developer-tooling projects: three independent
+software projects plus a curated list. Each subdirectory is self-contained
+(own `pyproject.toml` where relevant, own `README.md`, own tests) so you can
+clone the parent and use any of them in isolation.
 
-## Lists
+## Projects
 
-- [awesome-mcp-clients](./awesome-mcp-clients) — clients that speak the [Model Context Protocol](https://modelcontextprotocol.io)
+| Project | What it is | Status |
+| --- | --- | --- |
+| [`dep-upgrade-skill`](./dep-upgrade-skill) | Claude Code skill that flags which lines in your repo break when you bump a dependency. Fetches release notes, extracts breaking-change symbols, greps the repo. | v0.1 ready_for_review |
+| [`screenshot-search-mcp`](./screenshot-search-mcp) | FastMCP server that indexes a screenshot folder by OCR text (Tesseract) and visual content (CLIP). Exposes 8 tools to MCP clients. | v0.1 ready_for_review |
+| [`personal-timeline-mcp`](./personal-timeline-mcp) | FastMCP server aggregating local activity (browser history, git commits, filesystem mtimes, calendar) into one queryable timeline. All sources local-only — see PRIVACY.md. | v0.1 ready_for_review |
+| [`awesome-mcp-clients`](./awesome-mcp-clients) | Curated list of clients that speak the [Model Context Protocol](https://modelcontextprotocol.io). | active |
 
-More lists land here as gaps are found.
+## Quick start
 
-## Why a monorepo?
+```bash
+git clone https://github.com/NoahStarkenburg/awesome-collections.git
+cd awesome-collections
 
-Each sub-list is a self-contained directory with its own `README.md` and a tiny `pipeline/fetch.py` helper that turns a GitHub URL into a clean, formatted markdown entry. Clone the parent, `cd` into any sub-list, and you've got everything.
+# Pick the project you want and follow its README:
+cd screenshot-search-mcp        # → ./screenshot-search-mcp/README.md
+```
+
+The MCP servers (`screenshot-search-mcp`, `personal-timeline-mcp`) declare
+their own dependencies in their `pyproject.toml`. The Python helpers in
+`dep-upgrade-skill` are stdlib-only.
 
 ## Contributing
 
-1. Pick the relevant sub-list.
-2. Run its `pipeline/fetch.py <github-url>` to generate a properly formatted entry line.
-3. Drop the line under the right category in that sub-list's `README.md` (alphabetized).
-4. Open a PR.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for branching conventions, dev
+setup, coding standards, commit-message rules, and the curation-entry
+workflow.
+
+For security issues, see [`SECURITY.md`](./SECURITY.md).
+
+## CI
+
+Every push and PR runs:
+- pytest for each project on Linux + Windows × Python 3.11 and 3.12
+- `ruff check .` and `ruff format --check .` against the whole tree
+
+See [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
+
+## Repo layout
+
+```
+awesome-collections/
+├── .github/
+│   ├── workflows/ci.yml
+│   ├── ISSUE_TEMPLATE/
+│   └── PULL_REQUEST_TEMPLATE.md
+├── dep-upgrade-skill/        # Claude Code skill + Python helpers
+├── screenshot-search-mcp/    # FastMCP server
+├── personal-timeline-mcp/    # FastMCP server
+├── awesome-mcp-clients/      # Curated list + pipeline/fetch.py
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── LICENSE
+└── pyproject.toml            # shared ruff config
+```
 
 ## License
 
-MIT for code, [CC0](https://creativecommons.org/publicdomain/zero/1.0/) for the curated content.
+[MIT](./LICENSE) for code; [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+for the curated `awesome-mcp-clients` content.
