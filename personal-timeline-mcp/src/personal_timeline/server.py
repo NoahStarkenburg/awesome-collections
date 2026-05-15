@@ -234,6 +234,28 @@ def what_changed_today(path: str | None = None, date: str | None = None) -> dict
     }
 
 
+@mcp.tool()
+def find_session(query: str, max_results: int = 20) -> dict:
+    """FTS5 search across event title + body.
+
+    Returns the highest-scoring events (lower BM25 = better). Useful for
+    "find that thing I was working on" queries.
+
+    Args:
+        query: FTS5 query string. Plain words work; quote phrases for exact.
+        max_results: cap on returned rows.
+    """
+    rows = store.search_events(_get_conn(), query, max_results=max_results)
+    return {
+        "query": query,
+        "count": len(rows),
+        "results": [
+            {**_row_to_dict(r), "score": float(r["score"])}
+            for r in rows
+        ],
+    }
+
+
 def _row_touches_path(row, needle: str) -> bool:
     """True if this event's payload mentions `needle` (fs.path or git.files)."""
     import json
