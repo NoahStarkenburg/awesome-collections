@@ -16,8 +16,10 @@ All sources are **local-only** in v1 — no OAuth, no cloud upload. See
 
 ## Status
 
-**v0.1.0** — all 4 sources read, all 8 MCP tools wired, 24 tests passing.
-Real-world Claude Desktop verification still recommended before tagging.
+**v0.1.0** — feature-complete for the v1 surface. All 4 sources read, all 8
+MCP tools wired, 33 tests passing (browser readers, git reader, calendar
+parser, plus 9 FastMCP in-memory protocol tests covering every tool).
+Real-world Claude Desktop click-through still recommended before tagging.
 
 ## Tools
 
