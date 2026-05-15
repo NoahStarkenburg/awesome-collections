@@ -63,7 +63,11 @@ def locate_profile() -> Path | None:
 
 
 def _copy_to_temp(db_path: Path) -> Path:
-    tmp = Path(tempfile.mkstemp(prefix="ptm_firefox_", suffix=".sqlite")[1])
+    """Copy the (potentially locked) DB to a temp file. Close the mkstemp fd
+    immediately so we don't leak one per call."""
+    fd, name = tempfile.mkstemp(prefix="ptm_firefox_", suffix=".sqlite")
+    os.close(fd)
+    tmp = Path(name)
     shutil.copyfile(db_path, tmp)
     return tmp
 
