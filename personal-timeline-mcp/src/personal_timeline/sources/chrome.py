@@ -71,8 +71,15 @@ def locate_profile(browser: str = "chrome") -> Path | None:
 
 
 def _copy_to_temp(db_path: Path) -> Path:
-    """Copy the (potentially locked) DB to a temp file we can safely open."""
-    tmp = Path(tempfile.mkstemp(prefix="ptm_chrome_", suffix=".db")[1])
+    """Copy the (potentially locked) DB to a temp file we can safely open.
+
+    `mkstemp` returns both an open fd and the path. We need the path; the fd
+    is opened with O_RDWR but never used here, so close it immediately to
+    avoid leaking one per call.
+    """
+    fd, name = tempfile.mkstemp(prefix="ptm_chrome_", suffix=".db")
+    os.close(fd)
+    tmp = Path(name)
     shutil.copyfile(db_path, tmp)
     return tmp
 
