@@ -328,6 +328,61 @@ def summarize_workday(date: str | None = None) -> dict:
     }
 
 
+@mcp.tool()
+def correlate(
+    event_id: int,
+    sources: list[str] | None = None,
+    window: str = "30m",
+    limit: int = 50,
+) -> dict:
+    """Find events from OTHER sources within ±`window` of a given event.
+
+    Use to answer "what meeting prompted this commit?" or "what was I reading
+    when I edited this file?" The reference event itself is excluded.
+
+    Args:
+        event_id: row id from a prior tool call.
+        sources: limit correlated events to these sources (optional).
+        window: ±span like `"30m"`, `"1h"`. Default 30 minutes.
+        limit: cap.
+    """
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM events WHERE id = ?", (int(event_id),)).fetchone()
+    if row is None:
+        return {"error": f"No event with id={event_id}", "results": [], "count": 0}
+
+    half = _parse_window(window)
+    center = int(row["ts"])
+    ref_source = row["source"]
+    candidate_sources = sources if sources else None
+    rows = store.events_in_range(
+        conn,
+        start_ts=center - half,
+        end_ts=center + half,
+        sources=candidate_sources,
+        limit=limit + 1,
+    )
+    out = []
+    for r in rows:
+        if int(r["id"]) == int(event_id):
+            continue
+        if candidate_sources is None and r["source"] == ref_source:
+            # Cross-source by default — same-source matches add noise.
+            continue
+        out.append({
+            **_row_to_dict(r),
+            "delta_seconds": int(r["ts"]) - center,
+        })
+        if len(out) >= limit:
+            break
+    return {
+        "reference": _row_to_dict(row),
+        "window_seconds": half * 2,
+        "count": len(out),
+        "results": out,
+    }
+
+
 def _row_touches_path(row, needle: str) -> bool:
     """True if this event's payload mentions `needle` (fs.path or git.files)."""
     import json
