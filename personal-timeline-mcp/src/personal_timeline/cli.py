@@ -35,6 +35,41 @@ def cmd_init(args) -> int:
     return 0
 
 
+def cmd_wipe(args) -> int:
+    """Delete the index database. Privacy escape hatch.
+
+    Config is left untouched. Requires --yes to actually delete; without it,
+    prints what *would* be removed and exits 0 so wiring it into a script is
+    safe to dry-run.
+    """
+    cfg_path = Path(args.config).expanduser() if args.config else config.DEFAULT_CONFIG_PATH
+    cfg = config.load(cfg_path)
+    db_path = Path(args.db).expanduser() if args.db else cfg.db_path
+
+    if not db_path.exists():
+        print(f"No index at {db_path} — nothing to wipe.")
+        return 0
+
+    if not args.yes:
+        print(f"Would delete: {db_path}")
+        # SQLite WAL/SHM siblings ride along on a wipe.
+        for suffix in ("-wal", "-shm", "-journal"):
+            sibling = db_path.with_name(db_path.name + suffix)
+            if sibling.exists():
+                print(f"Would delete: {sibling}")
+        print()
+        print("Pass --yes to actually delete.")
+        return 0
+
+    db_path.unlink()
+    for suffix in ("-wal", "-shm", "-journal"):
+        sibling = db_path.with_name(db_path.name + suffix)
+        if sibling.exists():
+            sibling.unlink()
+    print(f"Removed: {db_path}")
+    return 0
+
+
 def cmd_index(args) -> int:
     """Run a one-shot reindex over every enabled source.
 
@@ -81,6 +116,11 @@ def build_parser() -> argparse.ArgumentParser:
     idx_p.add_argument("--force-full", action="store_true",
                        help="Clear source_state first so every source rewalks from the start")
     idx_p.set_defaults(func=cmd_index)
+
+    wipe_p = sub.add_parser("wipe", help="Delete the index database (privacy)")
+    wipe_p.add_argument("--yes", action="store_true",
+                        help="Actually delete (without this flag, command is a dry-run)")
+    wipe_p.set_defaults(func=cmd_wipe)
 
     return p
 
