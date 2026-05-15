@@ -33,7 +33,7 @@ _Coming soon._
 
 ## Desktop Chat Apps
 
-_Coming soon._
+- **[5ire](https://github.com/nanbingxyz/5ire)** — 5ire is a cross-platform desktop AI assistant, MCP client. It compatible with major service providers,  supports local knowledge base and  tools via model context protocol servers . ⭐ 5.2k · TypeScript · NOASSERTION · updated 8w ago
 
 ## Web Chat Interfaces
 
