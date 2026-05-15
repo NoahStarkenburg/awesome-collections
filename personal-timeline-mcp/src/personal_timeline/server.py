@@ -194,6 +194,60 @@ def timeline_around(
     }
 
 
+@mcp.tool()
+def what_changed_today(path: str | None = None, date: str | None = None) -> dict:
+    """Return filesystem + git events for a given day (default: today).
+
+    Args:
+        path: optional path prefix — restrict to events whose payload `path`
+            (fs) or `files` (git) include this substring.
+        date: optional ISO date (`YYYY-MM-DD`); default is the system's
+            current UTC date.
+
+    Returns: {date, count, events: [...]} — events ordered chronologically.
+    """
+    from datetime import datetime, timezone, timedelta
+    if date is None:
+        day = datetime.now(timezone.utc).date()
+    else:
+        day = datetime.strptime(date, "%Y-%m-%d").date()
+    start = int(datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).timestamp())
+    end = int((datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=1)).timestamp()) - 1
+
+    rows = store.events_in_range(
+        _get_conn(),
+        start_ts=start,
+        end_ts=end,
+        sources=["fs", "git"],
+        limit=500,
+    )
+    out: list[dict] = []
+    for row in rows:
+        if path is not None and not _row_touches_path(row, path):
+            continue
+        out.append(_row_to_dict(row))
+    return {
+        "date": str(day),
+        "path_filter": path,
+        "count": len(out),
+        "events": out,
+    }
+
+
+def _row_touches_path(row, needle: str) -> bool:
+    """True if this event's payload mentions `needle` (fs.path or git.files)."""
+    import json
+    try:
+        payload = json.loads(row["payload_json"] or "{}")
+    except (TypeError, ValueError):
+        return False
+    if row["source"] == "fs":
+        return needle in (payload.get("path") or "")
+    if row["source"] == "git":
+        return any(needle in f for f in (payload.get("files") or []))
+    return False
+
+
 def _parse_ts(value: str | int | float) -> int:
     """Accept epoch seconds or ISO-8601 (`%Y-%m-%dT%H:%M:%S`/`Z`/`%Y-%m-%d`)."""
     if isinstance(value, (int, float)):
