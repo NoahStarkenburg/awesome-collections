@@ -160,6 +160,91 @@ def index_sources(force_full: bool = False) -> dict:
     }
 
 
+@mcp.tool()
+def timeline_around(
+    timestamp: str,
+    window: str = "1h",
+    sources: list[str] | None = None,
+    limit: int = 200,
+) -> dict:
+    """Return events within ±`window` of `timestamp`, across all sources.
+
+    Args:
+        timestamp: ISO-8601 (`2026-05-14T09:30:00Z` or `2026-05-14`) or epoch seconds.
+        window: human-readable span — `"30m"`, `"1h"`, `"2h"`, `"1d"`. Default 1h.
+        sources: optional source filter (e.g. `["git", "calendar"]`).
+        limit: cap on returned events.
+
+    Returns: {center_ts, window_seconds, count, events: [...]}.
+    """
+    center = _parse_ts(timestamp)
+    half = _parse_window(window)
+    rows = store.events_in_range(
+        _get_conn(),
+        start_ts=center - half,
+        end_ts=center + half,
+        sources=sources,
+        limit=limit,
+    )
+    return {
+        "center_ts": center,
+        "window_seconds": half * 2,
+        "count": len(rows),
+        "events": [_row_to_dict(r) for r in rows],
+    }
+
+
+def _parse_ts(value: str | int | float) -> int:
+    """Accept epoch seconds or ISO-8601 (`%Y-%m-%dT%H:%M:%S`/`Z`/`%Y-%m-%d`)."""
+    if isinstance(value, (int, float)):
+        return int(value)
+    text = str(value).strip()
+    try:
+        return int(text)
+    except ValueError:
+        pass
+    from datetime import datetime, timezone
+    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return int(datetime.strptime(text, fmt).replace(tzinfo=timezone.utc).timestamp())
+        except ValueError:
+            continue
+    raise ValueError(f"Cannot parse timestamp: {value!r}")
+
+
+def _parse_window(value: str) -> int:
+    """Convert `"30m"` / `"1h"` / `"2h"` / `"1d"` to seconds. Returns half-window."""
+    text = str(value).strip().lower()
+    if not text:
+        return 1800
+    unit = text[-1]
+    try:
+        n = int(text[:-1])
+    except ValueError:
+        raise ValueError(f"Cannot parse window: {value!r}")
+    if unit == "s":
+        return n
+    if unit == "m":
+        return n * 60
+    if unit == "h":
+        return n * 3600
+    if unit == "d":
+        return n * 86400
+    raise ValueError(f"Unknown window unit in {value!r}; use s/m/h/d")
+
+
+def _row_to_dict(row) -> dict:
+    return {
+        "id": int(row["id"]),
+        "source": row["source"],
+        "source_id": row["source_id"],
+        "ts": int(row["ts"]),
+        "end_ts": None if row["end_ts"] is None else int(row["end_ts"]),
+        "title": row["title"],
+        "body": (row["body"] or "")[:300],
+    }
+
+
 def _ingest_one(conn, source: str, opts: dict) -> dict:
     """Dispatch one source's options to its reader/ingestor."""
     from .sources import calendar as calsrc
