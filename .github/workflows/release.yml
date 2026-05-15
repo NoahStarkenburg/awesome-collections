@@ -1,0 +1,165 @@
+name: Release
+
+# Per-project tagging. Push a tag of the form `<project>-v<X.Y.Z>` to cut a
+# release for one project. Examples:
+#   git tag screenshot-search-mcp-v0.1.0 && git push origin screenshot-search-mcp-v0.1.0
+#   git tag personal-timeline-mcp-v0.1.0 && git push origin personal-timeline-mcp-v0.1.0
+#   git tag dep-upgrade-skill-v0.1.0     && git push origin dep-upgrade-skill-v0.1.0
+#
+# Wire-up:
+#   - parse tag → (project, version)
+#   - verify project dir exists in the repo
+#   - if the project has a pyproject, build wheel + sdist with `python -m build`
+#     and verify the declared version matches the tag (no silent drift)
+#   - if it doesn't (dep-upgrade-skill — it's a Claude Code skill, not a wheel),
+#     pack the skill directory as a tarball instead
+#   - create the GitHub Release with auto-generated notes and attach the artifacts
+
+on:
+  push:
+    tags:
+      - "*-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release (format: <project>-v<X.Y.Z>)"
+        required: true
+
+permissions:
+  contents: write   # creating releases + uploading assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # release-notes generation wants full history
+
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          # split on the LAST occurrence of "-v" so project names with hyphens work.
+          PROJECT="${TAG%-v*}"
+          VERSION="${TAG##*-v}"
+          if [[ -z "$PROJECT" || -z "$VERSION" || "$PROJECT" == "$TAG" ]]; then
+            echo "::error::Tag '$TAG' must match <project>-v<X.Y.Z>"
+            exit 1
+          fi
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved: project=$PROJECT version=$VERSION"
+
+      - name: Validate project directory exists
+        shell: bash
+        run: |
+          if [[ ! -d "${{ steps.tag.outputs.project }}" ]]; then
+            echo "::error::Unknown project '${{ steps.tag.outputs.project }}' — no such directory at repo root"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Detect packaging style
+        id: style
+        shell: bash
+        run: |
+          if [[ -f "${{ steps.tag.outputs.project }}/pyproject.toml" ]]; then
+            echo "kind=pyproject" >> "$GITHUB_OUTPUT"
+          else
+            echo "kind=tarball" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify pyproject version matches tag
+        if: steps.style.outputs.kind == 'pyproject'
+        shell: bash
+        working-directory: ${{ steps.tag.outputs.project }}
+        run: |
+          python - <<PY
+          import sys, tomllib
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          declared = data["project"]["version"]
+          tag_v = "${{ steps.tag.outputs.version }}"
+          if declared != tag_v:
+              print(f"::error::pyproject.toml version ({declared}) "
+                    f"!= tag version ({tag_v}) — bump the version and re-tag")
+              sys.exit(1)
+          print(f"version match: {declared}")
+          PY
+
+      - name: Build wheel + sdist
+        if: steps.style.outputs.kind == 'pyproject'
+        working-directory: ${{ steps.tag.outputs.project }}
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Quick install + import smoke test
+        if: steps.style.outputs.kind == 'pyproject'
+        working-directory: ${{ steps.tag.outputs.project }}
+        shell: bash
+        run: |
+          # Install the just-built wheel into a fresh venv and import the package
+          # to confirm the artifact actually loads. Catches missing-files bugs
+          # (forgot to include a module in [tool.hatch.build.targets.wheel])
+          # before we publish.
+          #
+          # Distribution name (e.g. "screenshot-search-mcp") doesn't always
+          # equal the import name (e.g. "screenshot_search"), so derive the
+          # import name from `[tool.hatch.build.targets.wheel].packages` —
+          # which is what hatch actually ships.
+          python -m venv .smoke
+          .smoke/bin/pip install --quiet ./dist/*.whl
+          IMPORT_NAME="$(python - <<'PY'
+          import tomllib, pathlib
+          data = tomllib.load(open("pyproject.toml", "rb"))
+          pkgs = (data.get("tool", {})
+                      .get("hatch", {})
+                      .get("build", {})
+                      .get("targets", {})
+                      .get("wheel", {})
+                      .get("packages", []))
+          if not pkgs:
+              raise SystemExit("no [tool.hatch.build.targets.wheel].packages")
+          print(pathlib.PurePosixPath(pkgs[0]).name)
+          PY
+          )"
+          echo "Importing: $IMPORT_NAME"
+          .smoke/bin/python -c "import importlib, sys; importlib.import_module(sys.argv[1]); print('imported OK:', sys.argv[1])" "$IMPORT_NAME"
+
+      - name: Package skill tarball
+        if: steps.style.outputs.kind == 'tarball'
+        shell: bash
+        run: |
+          PROJECT="${{ steps.tag.outputs.project }}"
+          VERSION="${{ steps.tag.outputs.version }}"
+          mkdir -p "$PROJECT/dist"
+          tar -czf "$PROJECT/dist/$PROJECT-$VERSION.tar.gz" \
+              --transform "s|^$PROJECT|$PROJECT-$VERSION|" \
+              "$PROJECT"
+          ls -la "$PROJECT/dist"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.project }} ${{ steps.tag.outputs.version }}
+          generate_release_notes: true
+          files: ${{ steps.tag.outputs.project }}/dist/*
+          fail_on_unmatched_files: true
