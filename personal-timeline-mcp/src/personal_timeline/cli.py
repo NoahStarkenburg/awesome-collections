@@ -12,6 +12,7 @@ out-of-band setup and maintenance.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -82,15 +83,13 @@ def cmd_index(args) -> int:
     db_path = Path(args.db).expanduser() if args.db else cfg.db_path
 
     # Reuse the server's dispatcher so the CLI and MCP path stay in lockstep.
-    import os
-
+    # Set the env var first, then explicitly reset the cached connection in
+    # case the server module was already imported by this process (tests).
     os.environ["PERSONAL_TIMELINE_DB"] = str(db_path)
-    for mod in list(sys.modules):
-        if mod.startswith("personal_timeline.server"):
-            del sys.modules[mod]
-    from .server import index_sources
+    from . import server as srv
 
-    result = index_sources(force_full=bool(args.force_full))
+    srv.reset_connection()
+    result = srv.index_sources(force_full=bool(args.force_full))
     print(f"Total ingested: {result['total_ingested']}")
     for source, outcome in result["results"].items():
         print(f"  {source:<10s} ingested={outcome.get('ingested', 0)}")
