@@ -15,9 +15,9 @@ Public:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 from ..store import Event
 
@@ -49,7 +49,7 @@ def _parse_dt(value: str) -> int:
     fmts = ("%Y%m%dT%H%M%SZ", "%Y%m%dT%H%M%S", "%Y%m%d")
     for fmt in fmts:
         try:
-            dt = datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(value, fmt).replace(tzinfo=UTC)
             return int(dt.timestamp())
         except ValueError:
             continue

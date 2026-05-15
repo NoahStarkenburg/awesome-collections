@@ -6,9 +6,9 @@ dedupes by (path, mtime, size), runs OCR on new/changed images, upserts rows.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
 
 from . import ocr, store
 

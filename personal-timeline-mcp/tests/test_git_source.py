@@ -10,7 +10,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from personal_timeline import store
 from personal_timeline.sources import git as gitsrc
 

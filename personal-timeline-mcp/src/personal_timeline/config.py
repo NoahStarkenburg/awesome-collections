@@ -54,7 +54,7 @@ class Config:
     source: Path | None = None  # path the config was loaded from
 
     @classmethod
-    def defaults(cls) -> "Config":
+    def defaults(cls) -> Config:
         return cls(sources={
             "chrome": SourceConfig(enabled=False),
             "firefox": SourceConfig(enabled=False),

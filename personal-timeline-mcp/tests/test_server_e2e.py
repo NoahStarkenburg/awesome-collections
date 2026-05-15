@@ -7,7 +7,6 @@ launching a real MCP client process.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 from fastmcp import Client

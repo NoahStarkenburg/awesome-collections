@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS images (
@@ -213,7 +213,7 @@ def nearest_neighbors(
         if vec is None:
             continue
         v_norm = math.sqrt(sum(x * x for x in vec)) or 1.0
-        score = sum(a * (b / v_norm) for a, b in zip(q_unit, vec))
+        score = sum(a * (b / v_norm) for a, b in zip(q_unit, vec, strict=False))
         candidates.append((image_id, score))
 
     candidates.sort(key=lambda kv: -kv[1])

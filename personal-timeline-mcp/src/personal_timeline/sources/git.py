@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import logging
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from ..store import Event
 
@@ -57,7 +57,7 @@ def list_commits(
     if author_email is not None:
         args += [f"--author={author_email}"]
     if max_count is not None:
-        args += [f"-n", str(max_count)]
+        args += ["-n", str(max_count)]
     out = _run_git(repo, args)
     return list(_parse_z_log(out))
 

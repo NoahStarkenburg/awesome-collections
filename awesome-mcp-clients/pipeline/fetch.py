@@ -17,7 +17,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -56,7 +56,7 @@ def humanize_pushed(iso: str | None) -> str:
     if not iso:
         return "unknown"
     dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-    days = (datetime.now(timezone.utc) - dt).days
+    days = (datetime.now(UTC) - dt).days
     if days <= 0:
         return "today"
     if days < 7:

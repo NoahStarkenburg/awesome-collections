@@ -17,6 +17,7 @@ import platform
 import sys
 import threading
 import time
+from datetime import UTC
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -206,13 +207,13 @@ def what_changed_today(path: str | None = None, date: str | None = None) -> dict
 
     Returns: {date, count, events: [...]} — events ordered chronologically.
     """
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta
     if date is None:
-        day = datetime.now(timezone.utc).date()
+        day = datetime.now(UTC).date()
     else:
         day = datetime.strptime(date, "%Y-%m-%d").date()
-    start = int(datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).timestamp())
-    end = int((datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=1)).timestamp()) - 1
+    start = int(datetime.combine(day, datetime.min.time(), tzinfo=UTC).timestamp())
+    end = int((datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)).timestamp()) - 1
 
     rows = store.events_in_range(
         _get_conn(),
@@ -264,16 +265,16 @@ def summarize_workday(date: str | None = None) -> dict:
     Args:
         date: optional ISO date (`YYYY-MM-DD`); default today (UTC).
     """
-    from collections import Counter
-    from datetime import datetime, timezone, timedelta
     import json
+    from collections import Counter
+    from datetime import datetime, timedelta
 
     if date is None:
-        day = datetime.now(timezone.utc).date()
+        day = datetime.now(UTC).date()
     else:
         day = datetime.strptime(date, "%Y-%m-%d").date()
-    start = int(datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).timestamp())
-    end = int((datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc) + timedelta(days=1)).timestamp()) - 1
+    start = int(datetime.combine(day, datetime.min.time(), tzinfo=UTC).timestamp())
+    end = int((datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)).timestamp()) - 1
 
     rows = store.events_in_range(_get_conn(), start_ts=start, end_ts=end, limit=10_000)
 
@@ -406,10 +407,10 @@ def _parse_ts(value: str | int | float) -> int:
         return int(text)
     except ValueError:
         pass
-    from datetime import datetime, timezone
+    from datetime import datetime
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
-            return int(datetime.strptime(text, fmt).replace(tzinfo=timezone.utc).timestamp())
+            return int(datetime.strptime(text, fmt).replace(tzinfo=UTC).timestamp())
         except ValueError:
             continue
     raise ValueError(f"Cannot parse timestamp: {value!r}")

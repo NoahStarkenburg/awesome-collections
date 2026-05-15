@@ -17,6 +17,7 @@ import platform
 import sys
 import threading
 import time
+from datetime import UTC
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -278,7 +279,7 @@ def get_metadata(image_path: str) -> dict:
     }
 
     try:
-        from PIL import Image, ExifTags  # type: ignore[import-not-found]
+        from PIL import ExifTags, Image  # type: ignore[import-not-found]
         with Image.open(target) as img:
             out["width"], out["height"] = img.size
             out["format"] = img.format
@@ -335,11 +336,11 @@ def _parse_since(value: str) -> float:
         return float(value)
     except ValueError:
         pass
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
         try:
-            dt = datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(value, fmt).replace(tzinfo=UTC)
             return dt.timestamp()
         except ValueError:
             continue

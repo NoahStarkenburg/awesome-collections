@@ -79,8 +79,8 @@ def watch(
     Returns the watchdog Observer so callers can stop it programmatically.
     """
     try:
-        from watchdog.observers import Observer  # type: ignore[import-not-found]
         from watchdog.events import FileSystemEventHandler  # type: ignore[import-not-found]
+        from watchdog.observers import Observer  # type: ignore[import-not-found]
     except ImportError as exc:
         raise ImportError(
             "watchdog is required for live watching. Install with: pip install watchdog"

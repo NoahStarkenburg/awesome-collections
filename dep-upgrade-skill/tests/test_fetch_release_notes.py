@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts import fetch_release_notes as frn
 
 FIXTURES = Path(__file__).parent / "fixtures"
