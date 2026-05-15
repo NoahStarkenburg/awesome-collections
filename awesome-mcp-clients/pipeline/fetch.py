@@ -81,6 +81,11 @@ def format_entry(data: dict) -> str:
 
 
 def main() -> int:
+    # The formatted entry contains a star glyph and pulls in descriptions that
+    # may include non-ASCII characters. Force UTF-8 on stdout so this works on
+    # Windows (default cp1252) without the caller having to set PYTHONIOENCODING.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) < 2:
         print("Usage: python fetch.py <github-url-or-owner/repo>", file=sys.stderr)
         return 2
