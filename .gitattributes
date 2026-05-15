@@ -1,0 +1,21 @@
+# Normalize line endings: store LF in git, check out per platform.
+* text=auto eol=lf
+
+# Force LF on script files that get executed on Unix runners.
+*.sh    text eol=lf
+*.py    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+
+# Treat these as binary so git doesn't try to diff them as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.tiff  binary
+*.db    binary
+*.sqlite binary
+*.sqlite3 binary
