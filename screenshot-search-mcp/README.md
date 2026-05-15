@@ -35,18 +35,24 @@ against a real screenshots folder.
 Requires **Python 3.11+** and `uv` (or `pip`).
 
 ```bash
-# 1. Clone and enter the project:
 git clone <repo-url>
 cd awesome-collections/screenshot-search-mcp
 
-# 2. Create a venv and install in editable mode with dev extras:
 uv venv
-uv pip install -e ".[dev]"
-# or with plain pip:
+# Pick the install footprint that matches what you'll use:
+uv pip install -e ".[dev]"           # OCR + text search only  (~50 MB of deps)
+uv pip install -e ".[visual,dev]"    # + CLIP visual search    (pulls PyTorch, ~1 GB)
+uv pip install -e ".[all]"           # everything
+
+# Or with plain pip (same shape):
 python -m venv .venv
 source .venv/bin/activate   # PowerShell: .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 ```
+
+**Skip `[visual]` if you don't need `search_visual` / `find_similar`.** The
+server starts fine without it — those two tools return a graceful
+`{"error": "open_clip_torch is required..."}` payload instead of crashing.
 
 ## System dependencies
 
