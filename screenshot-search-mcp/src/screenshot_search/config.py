@@ -30,7 +30,7 @@ class Config:
     source: Path | None = None
 
     @classmethod
-    def defaults(cls) -> "Config":
+    def defaults(cls) -> Config:
         return cls()
 
 

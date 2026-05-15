@@ -197,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.path:
-        with open(args.path, "r", encoding="utf-8") as f:
+        with open(args.path, encoding="utf-8") as f:
             text = f.read()
     else:
         text = sys.stdin.read()

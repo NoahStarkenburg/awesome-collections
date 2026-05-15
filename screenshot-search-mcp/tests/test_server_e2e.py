@@ -13,11 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-from pathlib import Path
 
 import pytest
-
 from fastmcp import Client
 from PIL import Image
 

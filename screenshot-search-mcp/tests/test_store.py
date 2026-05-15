@@ -5,7 +5,6 @@ import struct
 from pathlib import Path
 
 import pytest
-
 from screenshot_search import store
 
 

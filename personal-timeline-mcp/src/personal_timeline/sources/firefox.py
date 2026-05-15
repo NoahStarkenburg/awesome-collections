@@ -16,8 +16,8 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from ..store import Event
 

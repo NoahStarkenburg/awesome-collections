@@ -10,9 +10,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from personal_timeline.sources import chrome, firefox
-
 
 # -- Chromium / FILETIME -------------------------------------------------------
 

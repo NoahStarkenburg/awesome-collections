@@ -18,8 +18,8 @@ import os
 import shutil
 import sqlite3
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from ..store import Event
 
