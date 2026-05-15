@@ -62,13 +62,13 @@ def reset_connection() -> None:
     points (the CLI, tests) when you've changed the DB path after the server
     module was already imported. The next `_get_conn()` call will reopen
     against the current `_db_path()`."""
+    import contextlib
+
     global _conn
     with _conn_lock:
         if _conn is not None:
-            try:
+            with contextlib.suppress(Exception):
                 _conn.close()
-            except Exception:
-                pass
             _conn = None
 
 
