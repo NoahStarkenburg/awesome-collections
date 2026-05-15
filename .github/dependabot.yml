@@ -1,0 +1,54 @@
+version: 2
+
+updates:
+  # Keep CI action versions current. Without this, `actions/checkout@v4` etc.
+  # silently drift behind upstream patches.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+      include: scope
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      # One grouped PR per week for routine action updates — cuts review noise.
+      gh-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /screenshot-search-mcp
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+      - python
+
+  - package-ecosystem: pip
+    directory: /personal-timeline-mcp
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+      - python
