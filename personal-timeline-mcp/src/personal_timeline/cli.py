@@ -35,6 +35,36 @@ def cmd_init(args) -> int:
     return 0
 
 
+def cmd_index(args) -> int:
+    """Run a one-shot reindex over every enabled source.
+
+    Equivalent to calling the server's `index_sources` tool, but invokable
+    without launching the MCP server. Useful for cron / first-run setups.
+    """
+    cfg_path = Path(args.config).expanduser() if args.config else config.DEFAULT_CONFIG_PATH
+    cfg = config.load(cfg_path)
+    db_path = Path(args.db).expanduser() if args.db else cfg.db_path
+
+    # Reuse the server's dispatcher so the CLI and MCP path stay in lockstep.
+    import os
+    os.environ["PERSONAL_TIMELINE_DB"] = str(db_path)
+    for mod in list(sys.modules):
+        if mod.startswith("personal_timeline.server"):
+            del sys.modules[mod]
+    from .server import index_sources
+
+    result = index_sources(force_full=bool(args.force_full))
+    print(f"Total ingested: {result['total_ingested']}")
+    for source, outcome in result["results"].items():
+        print(f"  {source:<10s} ingested={outcome.get('ingested', 0)}")
+    if result["errors"]:
+        print("Errors:")
+        for err in result["errors"]:
+            print(f"  - {err['source']}: {err['error']}")
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="personal-timeline",
@@ -46,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     init_p = sub.add_parser("init", help="Bootstrap config + database")
     init_p.set_defaults(func=cmd_init)
+
+    idx_p = sub.add_parser("index", help="Reindex every enabled source")
+    idx_p.add_argument("--force-full", action="store_true",
+                       help="Clear source_state first so every source rewalks from the start")
+    idx_p.set_defaults(func=cmd_index)
 
     return p
 
