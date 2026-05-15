@@ -17,13 +17,24 @@ dependencies = [
     "fastmcp>=2.0",
     "Pillow>=10.0",
     "pytesseract>=0.3.10",
-    "open-clip-torch>=2.24",
-    "numpy>=1.26",
     "watchdog>=4.0",
 ]
 
 [project.optional-dependencies]
+# Visual search (search_visual, find_similar). Pulls in PyTorch — ~1 GB of
+# wheels. Skip this extra if you only need OCR-based text search.
+visual = [
+    "open-clip-torch>=2.24",
+    "numpy>=1.26",
+]
 dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+# Convenience: `pip install -e .[all]` for the full feature set.
+all = [
+    "open-clip-torch>=2.24",
+    "numpy>=1.26",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
 ]
