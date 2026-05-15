@@ -1,4 +1,4 @@
-# Operational state — never committed
+# Local-only working state
 .local/
 .claude/
 

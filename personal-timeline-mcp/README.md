@@ -62,7 +62,7 @@ index, condensed for readability:
   "top_files": [
     {"path": "personal-timeline-mcp/src/personal_timeline/server.py", "hits": 6},
     {"path": "personal-timeline-mcp/src/personal_timeline/cli.py",    "hits": 4},
-    {"path": ".local/QUEUE.md",                                       "hits": 3}
+    {"path": "personal-timeline-mcp/README.md",                       "hits": 3}
   ]
 }
 ```
