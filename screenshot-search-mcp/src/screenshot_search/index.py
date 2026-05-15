@@ -3,6 +3,7 @@
 Public entry: `index_directory(conn, root, recursive=True)` — walks the tree,
 dedupes by (path, mtime, size), runs OCR on new/changed images, upserts rows.
 """
+
 from __future__ import annotations
 
 import logging

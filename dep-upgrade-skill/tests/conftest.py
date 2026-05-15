@@ -1,4 +1,5 @@
 """Make `scripts/` importable as a package for tests run from the project root."""
+
 from __future__ import annotations
 
 import sys

@@ -8,6 +8,7 @@ Public:
     locate_profile() -> Path | None
     read_events(places_db_path, *, since_ts=None) -> Iterator[Event]
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,6 +46,7 @@ def locate_profile() -> Path | None:
             continue
         # parse profiles.ini just enough to find the default
         import configparser
+
         parser = configparser.ConfigParser()
         parser.read(ini)
         # The default profile is the section with Default=1, or fall back to

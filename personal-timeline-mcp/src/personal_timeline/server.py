@@ -10,6 +10,7 @@ The server keeps one SQLite connection alive for the process lifetime. The DB
 path defaults to `~/.personal-timeline/index.db` and can be overridden with
 the `PERSONAL_TIMELINE_DB` env var.
 """
+
 from __future__ import annotations
 
 import os
@@ -103,7 +104,9 @@ def list_sources() -> dict:
                 {
                     "key": row["source"],
                     "last_indexed_at": int(row["last_indexed_at"]),
-                    "last_event_ts": None if row["last_event_ts"] is None else int(row["last_event_ts"]),
+                    "last_event_ts": None
+                    if row["last_event_ts"] is None
+                    else int(row["last_event_ts"]),
                 }
                 for row in states
             ]
@@ -208,12 +211,18 @@ def what_changed_today(path: str | None = None, date: str | None = None) -> dict
     Returns: {date, count, events: [...]} — events ordered chronologically.
     """
     from datetime import datetime, timedelta
+
     if date is None:
         day = datetime.now(UTC).date()
     else:
         day = datetime.strptime(date, "%Y-%m-%d").date()
     start = int(datetime.combine(day, datetime.min.time(), tzinfo=UTC).timestamp())
-    end = int((datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)).timestamp()) - 1
+    end = (
+        int(
+            (datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)).timestamp()
+        )
+        - 1
+    )
 
     rows = store.events_in_range(
         _get_conn(),
@@ -250,10 +259,7 @@ def find_session(query: str, max_results: int = 20) -> dict:
     return {
         "query": query,
         "count": len(rows),
-        "results": [
-            {**_row_to_dict(r), "score": float(r["score"])}
-            for r in rows
-        ],
+        "results": [{**_row_to_dict(r), "score": float(r["score"])} for r in rows],
     }
 
 
@@ -274,7 +280,12 @@ def summarize_workday(date: str | None = None) -> dict:
     else:
         day = datetime.strptime(date, "%Y-%m-%d").date()
     start = int(datetime.combine(day, datetime.min.time(), tzinfo=UTC).timestamp())
-    end = int((datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)).timestamp()) - 1
+    end = (
+        int(
+            (datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)).timestamp()
+        )
+        - 1
+    )
 
     rows = store.events_in_range(_get_conn(), start_ts=start, end_ts=end, limit=10_000)
 
@@ -295,21 +306,25 @@ def summarize_workday(date: str | None = None) -> dict:
         except (TypeError, ValueError):
             payload = {}
         if row["source"] == "git":
-            commits.append({
-                "ts": ts,
-                "sha": payload.get("sha"),
-                "subject": row["title"],
-                "files": payload.get("files") or [],
-            })
+            commits.append(
+                {
+                    "ts": ts,
+                    "sha": payload.get("sha"),
+                    "subject": row["title"],
+                    "files": payload.get("files") or [],
+                }
+            )
             for f in payload.get("files") or []:
                 file_hits[f] += 1
         elif row["source"] == "calendar":
-            calendar_blocks.append({
-                "ts": ts,
-                "end_ts": None if row["end_ts"] is None else int(row["end_ts"]),
-                "summary": row["title"],
-                "location": payload.get("location"),
-            })
+            calendar_blocks.append(
+                {
+                    "ts": ts,
+                    "end_ts": None if row["end_ts"] is None else int(row["end_ts"]),
+                    "summary": row["title"],
+                    "location": payload.get("location"),
+                }
+            )
         elif row["source"] == "fs":
             path = payload.get("path")
             if path:
@@ -321,8 +336,11 @@ def summarize_workday(date: str | None = None) -> dict:
         "total_events": sum(by_source.values()),
         "first_event_ts": first_event_ts,
         "last_event_ts": last_event_ts,
-        "active_hours": (None if first_event_ts is None or last_event_ts is None
-                          else round((last_event_ts - first_event_ts) / 3600, 1)),
+        "active_hours": (
+            None
+            if first_event_ts is None or last_event_ts is None
+            else round((last_event_ts - first_event_ts) / 3600, 1)
+        ),
         "git_commits": commits,
         "calendar_blocks": calendar_blocks,
         "top_files": [{"path": p, "hits": n} for p, n in file_hits.most_common(10)],
@@ -370,10 +388,12 @@ def correlate(
         if candidate_sources is None and r["source"] == ref_source:
             # Cross-source by default — same-source matches add noise.
             continue
-        out.append({
-            **_row_to_dict(r),
-            "delta_seconds": int(r["ts"]) - center,
-        })
+        out.append(
+            {
+                **_row_to_dict(r),
+                "delta_seconds": int(r["ts"]) - center,
+            }
+        )
         if len(out) >= limit:
             break
     return {
@@ -387,6 +407,7 @@ def correlate(
 def _row_touches_path(row, needle: str) -> bool:
     """True if this event's payload mentions `needle` (fs.path or git.files)."""
     import json
+
     try:
         payload = json.loads(row["payload_json"] or "{}")
     except (TypeError, ValueError):
@@ -400,7 +421,7 @@ def _row_touches_path(row, needle: str) -> bool:
 
 def _parse_ts(value: str | int | float) -> int:
     """Accept epoch seconds or ISO-8601 (`%Y-%m-%dT%H:%M:%S`/`Z`/`%Y-%m-%d`)."""
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return int(value)
     text = str(value).strip()
     try:
@@ -408,6 +429,7 @@ def _parse_ts(value: str | int | float) -> int:
     except ValueError:
         pass
     from datetime import datetime
+
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
             return int(datetime.strptime(text, fmt).replace(tzinfo=UTC).timestamp())
@@ -424,8 +446,8 @@ def _parse_window(value: str) -> int:
     unit = text[-1]
     try:
         n = int(text[:-1])
-    except ValueError:
-        raise ValueError(f"Cannot parse window: {value!r}")
+    except ValueError as exc:
+        raise ValueError(f"Cannot parse window: {value!r}") from exc
     if unit == "s":
         return n
     if unit == "m":
@@ -487,7 +509,10 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
         else:
             profile = chrome.locate_profile() if source == "chrome" else firefox.locate_profile()
             if profile is None:
-                return {"ingested": 0, "note": "profile not located — set [sources.<name>].profile_dir"}
+                return {
+                    "ingested": 0,
+                    "note": "profile not located — set [sources.<name>].profile_dir",
+                }
             path = profile / ("History" if source == "chrome" else "places.sqlite")
         if not path.is_file():
             return {"ingested": 0, "note": f"DB not found at {path}"}

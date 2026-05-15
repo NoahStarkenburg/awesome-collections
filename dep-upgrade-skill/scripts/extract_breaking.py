@@ -15,6 +15,7 @@ Usage:
     python extract_breaking.py CHANGELOG.md
     cat CHANGELOG.md | python extract_breaking.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,16 +52,72 @@ ALLCAPS_RE = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
 
 # Words to drop from CamelCase/ALLCAPS hits — these are English, not symbols.
 STOPWORDS = {
-    "API", "APIS", "URL", "URLS", "URI", "URIS", "JSON", "YAML", "TOML", "XML",
-    "HTTP", "HTTPS", "TLS", "SSL", "DNS", "TCP", "UDP", "IP",
-    "CSS", "HTML", "JS", "TS", "DOM",
-    "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS",
-    "TODO", "FIXME", "NOTE", "WARNING", "ERROR", "INFO", "DEBUG",
-    "ID", "IDS", "UUID", "UUIDS",
-    "OS", "CPU", "GPU", "RAM", "IO", "FS",
-    "AKA", "FAQ", "RFC", "PR", "PRS", "CI", "CD", "PHP", "SDK",
-    "BREAKING", "CHANGES", "CHANGE", "MAJOR", "MINOR",
-    "NodeJs", "JavaScript", "TypeScript", "GitHub", "GitLab",
+    "API",
+    "APIS",
+    "URL",
+    "URLS",
+    "URI",
+    "URIS",
+    "JSON",
+    "YAML",
+    "TOML",
+    "XML",
+    "HTTP",
+    "HTTPS",
+    "TLS",
+    "SSL",
+    "DNS",
+    "TCP",
+    "UDP",
+    "IP",
+    "CSS",
+    "HTML",
+    "JS",
+    "TS",
+    "DOM",
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "PATCH",
+    "HEAD",
+    "OPTIONS",
+    "TODO",
+    "FIXME",
+    "NOTE",
+    "WARNING",
+    "ERROR",
+    "INFO",
+    "DEBUG",
+    "ID",
+    "IDS",
+    "UUID",
+    "UUIDS",
+    "OS",
+    "CPU",
+    "GPU",
+    "RAM",
+    "IO",
+    "FS",
+    "AKA",
+    "FAQ",
+    "RFC",
+    "PR",
+    "PRS",
+    "CI",
+    "CD",
+    "PHP",
+    "SDK",
+    "BREAKING",
+    "CHANGES",
+    "CHANGE",
+    "MAJOR",
+    "MINOR",
+    "NodeJs",
+    "JavaScript",
+    "TypeScript",
+    "GitHub",
+    "GitLab",
 }
 
 
@@ -89,12 +146,14 @@ def find_breaking_sections(text: str) -> list[dict]:
             continue
         start = m.end()
         end = headings[i + 1].start() if i + 1 < len(headings) else len(text)
-        out.append({
-            "heading": title,
-            "depth": depth,
-            "start_line": text.count("\n", 0, m.start()) + 1,
-            "content": text[start:end].strip(),
-        })
+        out.append(
+            {
+                "heading": title,
+                "depth": depth,
+                "start_line": text.count("\n", 0, m.start()) + 1,
+                "content": text[start:end].strip(),
+            }
+        )
     return out
 
 
@@ -192,8 +251,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Extract 'Breaking changes' sections and symbols from a CHANGELOG.",
     )
     p.add_argument("path", nargs="?", help="path to CHANGELOG file (omit to read stdin)")
-    p.add_argument("--sections-only", action="store_true",
-                   help="emit only the sections array (skip needs_review/raw_text)")
+    p.add_argument(
+        "--sections-only",
+        action="store_true",
+        help="emit only the sections array (skip needs_review/raw_text)",
+    )
     args = p.parse_args(argv)
 
     if args.path:

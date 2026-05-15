@@ -1,4 +1,5 @@
 """Tests for the SQLite store. Uses tmp_path so each test gets a fresh DB."""
+
 from __future__ import annotations
 
 import struct
@@ -22,12 +23,12 @@ def _pack(*floats: float) -> bytes:
 
 # -- schema + connection -------------------------------------------------------
 
+
 def test_init_db_creates_expected_tables(tmp_path: Path):
     db = tmp_path / "fresh.db"
     c = store.init_db(db)
     names = {
-        r[0]
-        for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     }
     # FTS5 creates several shadow tables (images_fts, images_fts_data, etc.)
     assert {"images", "embeddings", "images_fts"} <= names
@@ -41,10 +42,9 @@ def test_foreign_keys_enabled(conn):
 
 # -- upsert / fetch ------------------------------------------------------------
 
+
 def test_upsert_image_returns_id(conn):
-    row_id = store.upsert_image(
-        conn, path="/img/a.png", mtime=1.0, size=10, ocr_text="hello"
-    )
+    row_id = store.upsert_image(conn, path="/img/a.png", mtime=1.0, size=10, ocr_text="hello")
     assert row_id == 1
 
 
@@ -88,6 +88,7 @@ def test_list_images_since_filter(conn):
 
 # -- FTS5 search ---------------------------------------------------------------
 
+
 def test_search_text_returns_matching_rows(conn):
     store.upsert_image(conn, path="/a.png", mtime=1.0, size=1, ocr_text="auth error dialog")
     store.upsert_image(conn, path="/b.png", mtime=1.0, size=1, ocr_text="rainbow kittens")
@@ -118,6 +119,7 @@ def test_search_text_updates_index_on_upsert(conn):
 
 # -- embeddings ----------------------------------------------------------------
 
+
 def test_embedding_round_trip(conn):
     img_id = store.upsert_image(conn, path="/a.png", mtime=1.0, size=1, ocr_text="x")
     blob = _pack(0.1, 0.2, 0.3, 0.4)
@@ -147,9 +149,7 @@ def test_nearest_neighbors_since_filter(conn):
     id_new = store.upsert_image(conn, path="/new.png", mtime=10.0, size=1, ocr_text="x")
     store.set_embedding(conn, id_old, "clip", _pack(1.0, 0.0))
     store.set_embedding(conn, id_new, "clip", _pack(0.95, 0.31))
-    results = store.nearest_neighbors(
-        conn, [1.0, 0.0], "clip", max_results=10, since=5.0
-    )
+    results = store.nearest_neighbors(conn, [1.0, 0.0], "clip", max_results=10, since=5.0)
     assert [r["path"] for r, _ in results] == ["/new.png"]
 
 

@@ -11,6 +11,7 @@ Output: JSON to stdout with keys:
 
 Stdlib only.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -139,13 +140,15 @@ def fetch_github_releases(repo_url: str, versions: list[str]) -> list[dict] | No
     for r in data:
         tag = (r.get("tag_name") or "").lstrip("v")
         if tag in wanted:
-            out.append({
-                "version": tag,
-                "name": r.get("name") or "",
-                "body": r.get("body") or "",
-                "published_at": r.get("published_at") or "",
-                "html_url": r.get("html_url") or "",
-            })
+            out.append(
+                {
+                    "version": tag,
+                    "name": r.get("name") or "",
+                    "body": r.get("body") or "",
+                    "published_at": r.get("published_at") or "",
+                    "html_url": r.get("html_url") or "",
+                }
+            )
     return out
 
 
@@ -270,11 +273,20 @@ def main(argv: list[str] | None = None) -> int:
         description="Fetch release notes for a package between two versions."
     )
     p.add_argument("package", help="package name (e.g. react, express)")
-    p.add_argument("--from", dest="from_version", required=True, help="lower bound version (exclusive)")
+    p.add_argument(
+        "--from", dest="from_version", required=True, help="lower bound version (exclusive)"
+    )
     p.add_argument("--to", dest="to_version", required=True, help="upper bound version (inclusive)")
-    p.add_argument("--ecosystem", default="npm", choices=["npm", "pypi"], help="package registry to query")
+    p.add_argument(
+        "--ecosystem", default="npm", choices=["npm", "pypi"], help="package registry to query"
+    )
     p.add_argument("--no-cache", action="store_true", help="bypass disk cache for this run")
-    p.add_argument("--cache-ttl", type=int, default=DEFAULT_TTL_SECONDS, help="cache TTL in seconds (default 3600)")
+    p.add_argument(
+        "--cache-ttl",
+        type=int,
+        default=DEFAULT_TTL_SECONDS,
+        help="cache TTL in seconds (default 3600)",
+    )
     args = p.parse_args(argv)
     global _cache_enabled, _cache_ttl
     _cache_enabled = not args.no_cache

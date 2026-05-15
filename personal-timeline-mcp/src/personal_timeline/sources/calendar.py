@@ -12,8 +12,10 @@ Supports:
 Public:
     read_events(ics_path) -> Iterator[Event]
 """
+
 from __future__ import annotations
 
+import contextlib
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -67,10 +69,10 @@ def _unescape(value: str) -> str:
     """Reverse RFC 5545 text escaping (\\n, \\,, \\;, \\\\ )."""
     return (
         value.replace("\\n", "\n")
-             .replace("\\N", "\n")
-             .replace("\\,", ",")
-             .replace("\\;", ";")
-             .replace("\\\\", "\\")
+        .replace("\\N", "\n")
+        .replace("\\,", ",")
+        .replace("\\;", ";")
+        .replace("\\\\", "\\")
     )
 
 
@@ -107,10 +109,8 @@ def parse_events(text: str) -> list[dict]:
             except ValueError as exc:
                 log.debug("Skipping VEVENT with bad DTSTART: %s", exc)
         elif key == "DTEND":
-            try:
+            with contextlib.suppress(ValueError):
                 current["end_ts"] = _parse_dt(value)
-            except ValueError:
-                pass
     return out
 
 

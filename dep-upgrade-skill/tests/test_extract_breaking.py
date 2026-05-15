@@ -1,4 +1,5 @@
 """Table-driven tests for extract_breaking against real-shape CHANGELOG snippets."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,17 +12,21 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 # -- heading detection ---------------------------------------------------------
 
-@pytest.mark.parametrize("title,expected", [
-    ("Breaking Changes", True),
-    ("BREAKING CHANGES", True),
-    ("breaking changes", True),
-    ("Breaking change", True),
-    ("Breaking", True),
-    ("Major changes", True),
-    ("Major Changes in v5", False),
-    ("New Features", False),
-    ("Bug Fixes", False),
-])
+
+@pytest.mark.parametrize(
+    "title,expected",
+    [
+        ("Breaking Changes", True),
+        ("BREAKING CHANGES", True),
+        ("breaking changes", True),
+        ("Breaking change", True),
+        ("Breaking", True),
+        ("Major changes", True),
+        ("Major Changes in v5", False),
+        ("New Features", False),
+        ("Bug Fixes", False),
+    ],
+)
 def test_is_breaking_heading(title, expected):
     assert eb.is_breaking_heading(title) is expected
 
@@ -51,12 +56,13 @@ def test_section_extraction_from_fixture(filename, n_sections, sample_symbol):
     assert result["needs_review"] is False
     assert len(result["sections"]) == n_sections
     flat_symbols = {s for sec in result["sections"] for s in sec["symbols"]}
-    assert any(sample_symbol in s for s in flat_symbols), (
-        f"Expected a symbol containing {sample_symbol!r}; got {flat_symbols!r}"
-    )
+    assert any(
+        sample_symbol in s for s in flat_symbols
+    ), f"Expected a symbol containing {sample_symbol!r}; got {flat_symbols!r}"
 
 
 # -- needs_review fallback ------------------------------------------------------
+
 
 def test_inline_breaking_without_heading_flags_review():
     text = (FIXTURES / "snippet_inline_only.md").read_text(encoding="utf-8")
@@ -86,6 +92,7 @@ def test_clean_changelog_with_breaking_skips_review():
 
 
 # -- symbol extractor ----------------------------------------------------------
+
 
 def test_extract_symbols_prefers_backticks():
     syms = eb.extract_symbols("Removed `oldMethod()` and renamed `MyClass`.")

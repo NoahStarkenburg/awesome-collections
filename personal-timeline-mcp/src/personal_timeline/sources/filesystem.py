@@ -7,6 +7,7 @@ Public:
     walk(root, *, ignore=None) -> Iterator[FileMeta]
     read_events(root, *, ignore=None) -> Iterator[Event]
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,8 +20,17 @@ from ..store import Event
 log = logging.getLogger(__name__)
 
 DEFAULT_IGNORE = {
-    ".git", "node_modules", "__pycache__", ".venv", "venv",
-    "dist", "build", ".pytest_cache", ".mypy_cache", ".idea", ".vscode",
+    ".git",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".idea",
+    ".vscode",
 }
 
 
@@ -43,7 +53,7 @@ def walk(
     if not root_path.is_dir():
         raise NotADirectoryError(root_path)
 
-    for current, dirs, files in _walk(root_path, skip):
+    for current, _dirs, files in _walk(root_path, skip):
         for name in files:
             try:
                 p = current / name
@@ -57,6 +67,7 @@ def walk(
 def _walk(root: Path, skip: set[str]):
     """Iterate directories filtering out ignored names. Uses os.scandir for speed."""
     import os
+
     stack = [root]
     while stack:
         current = stack.pop()
