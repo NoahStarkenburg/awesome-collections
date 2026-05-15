@@ -1,4 +1,5 @@
 """Make `src/screenshot_search` importable as a package for tests."""
+
 from __future__ import annotations
 
 import sys

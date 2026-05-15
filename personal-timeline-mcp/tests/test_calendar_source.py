@@ -1,4 +1,5 @@
 """Tests for the .ics calendar reader."""
+
 from __future__ import annotations
 
 from datetime import UTC
@@ -44,6 +45,7 @@ def test_date_only_event_treated_as_midnight_utc(fixture_path: Path):
     birthday = next(e for e in events if e.payload["uid"] == "evt4@example.com")
     # 20260601 -> 2026-06-01T00:00:00Z
     from datetime import datetime
+
     expected = int(datetime(2026, 6, 1, tzinfo=UTC).timestamp())
     assert birthday.ts == expected
 
@@ -54,6 +56,7 @@ def test_tzid_event_parses_with_floating_local(fixture_path: Path):
     events = list(cal.read_events(fixture_path))
     review = next(e for e in events if e.payload["uid"] == "evt3@example.com")
     from datetime import datetime
+
     expected = int(datetime(2026, 5, 15, 10, 0, tzinfo=UTC).timestamp())
     assert review.ts == expected
 

@@ -11,6 +11,7 @@ Output (single line):
 No third-party dependencies. Stdlib only.
 Set GITHUB_TOKEN in env to lift rate limits.
 """
+
 from __future__ import annotations
 
 import json

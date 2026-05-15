@@ -5,6 +5,7 @@ Wraps `pytesseract` so callers don't have to handle:
   - the empty-result case (returns empty string instead of erroring)
   - the unsupported-format case (Pillow raises; we catch and return empty)
 """
+
 from __future__ import annotations
 
 import logging

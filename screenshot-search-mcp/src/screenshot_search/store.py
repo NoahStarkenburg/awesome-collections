@@ -4,6 +4,7 @@ Provides schema management plus a minimal API:
     upsert_image, get_by_path, list_images, search_text, nearest_neighbors,
     set_embedding, get_embedding.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -75,6 +76,7 @@ def init_db(db_path: str | Path) -> sqlite3.Connection:
 
 # -- image rows ----------------------------------------------------------------
 
+
 def upsert_image(
     conn: sqlite3.Connection,
     *,
@@ -116,9 +118,7 @@ def list_images(
     limit: int = 100,
 ) -> list[sqlite3.Row]:
     if since is None:
-        return conn.execute(
-            "SELECT * FROM images ORDER BY mtime DESC LIMIT ?", (limit,)
-        ).fetchall()
+        return conn.execute("SELECT * FROM images ORDER BY mtime DESC LIMIT ?", (limit,)).fetchall()
     return conn.execute(
         "SELECT * FROM images WHERE mtime >= ? ORDER BY mtime DESC LIMIT ?",
         (since, limit),
@@ -126,6 +126,7 @@ def list_images(
 
 
 # -- text search via FTS5 ------------------------------------------------------
+
 
 def search_text(
     conn: sqlite3.Connection,
@@ -154,6 +155,7 @@ def search_text(
 
 # -- embeddings ----------------------------------------------------------------
 
+
 def set_embedding(
     conn: sqlite3.Connection,
     image_id: int,
@@ -170,9 +172,7 @@ def set_embedding(
     conn.commit()
 
 
-def get_embedding(
-    conn: sqlite3.Connection, image_id: int, model: str
-) -> bytes | None:
+def get_embedding(conn: sqlite3.Connection, image_id: int, model: str) -> bytes | None:
     row = conn.execute(
         "SELECT vector FROM embeddings WHERE image_id = ? AND model = ?",
         (image_id, model),
@@ -180,13 +180,9 @@ def get_embedding(
     return None if row is None else bytes(row["vector"])
 
 
-def iter_embeddings(
-    conn: sqlite3.Connection, model: str
-) -> Iterable[tuple[int, bytes]]:
+def iter_embeddings(conn: sqlite3.Connection, model: str) -> Iterable[tuple[int, bytes]]:
     """Yield (image_id, vector_bytes) for every image with an embedding for `model`."""
-    for row in conn.execute(
-        "SELECT image_id, vector FROM embeddings WHERE model = ?", (model,)
-    ):
+    for row in conn.execute("SELECT image_id, vector FROM embeddings WHERE model = ?", (model,)):
         yield int(row["image_id"]), bytes(row["vector"])
 
 

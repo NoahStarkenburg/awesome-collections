@@ -23,6 +23,7 @@ Usage:
     python detect_manifest.py /path/to/repo
     python detect_manifest.py --package react   # filter to one dep
 """
+
 from __future__ import annotations
 
 import argparse
@@ -170,9 +171,7 @@ def main(argv: list[str] | None = None) -> int:
     manifests = detect(root)
     if args.package:
         for m in manifests:
-            m["dependencies"] = {
-                k: v for k, v in m["dependencies"].items() if k == args.package
-            }
+            m["dependencies"] = {k: v for k, v in m["dependencies"].items() if k == args.package}
         manifests = [m for m in manifests if m["dependencies"]]
 
     json.dump({"manifests": manifests}, sys.stdout, indent=2)

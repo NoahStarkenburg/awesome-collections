@@ -11,6 +11,7 @@ Shape:
 When the file is missing, `load()` returns Config.defaults() — no error. Use
 `bootstrap()` to write a starter config on first run.
 """
+
 from __future__ import annotations
 
 import tomllib
@@ -73,13 +74,13 @@ def bootstrap(path: str | Path | None = None) -> Path:
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        '# screenshot-search-mcp config\n'
-        '# Uncomment and edit to suit your setup.\n'
-        '\n'
+        "# screenshot-search-mcp config\n"
+        "# Uncomment and edit to suit your setup.\n"
+        "\n"
         '# db_path = "~/.screenshot-search/index.db"\n'
         '# watch_dirs = ["~/Pictures/Screenshots"]\n'
-        '# debounce_seconds = 2.0\n'
-        '# recursive = true\n',
+        "# debounce_seconds = 2.0\n"
+        "# recursive = true\n",
         encoding="utf-8",
     )
     return target

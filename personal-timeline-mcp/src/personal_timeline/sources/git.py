@@ -9,6 +9,7 @@ Public:
     ingest_repo(conn, repo_path, *, author_email=None) — incremental, uses
         source_state to remember the last commit ts ingested per repo.
 """
+
 from __future__ import annotations
 
 import logging

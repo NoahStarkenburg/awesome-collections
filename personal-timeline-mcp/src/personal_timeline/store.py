@@ -4,6 +4,7 @@ Schema + minimal API:
     upsert_event, events_in_range, search_events,
     get_source_state, update_source_state, count_events.
 """
+
 from __future__ import annotations
 
 import json
@@ -84,6 +85,7 @@ def init_db(db_path: str | Path) -> sqlite3.Connection:
 @dataclass
 class Event:
     """Source-agnostic event row. `source_id` must be stable within `source`."""
+
     source: str
     source_id: str
     ts: int
@@ -163,8 +165,9 @@ def search_events(
     """FTS5 search over title + body. Returns rows ordered by BM25."""
     if not query.strip():
         return []
-    return list(conn.execute(
-        """
+    return list(
+        conn.execute(
+            """
         SELECT e.*, bm25(events_fts) AS score
         FROM events_fts
         JOIN events e ON e.id = events_fts.rowid
@@ -172,22 +175,21 @@ def search_events(
         ORDER BY score
         LIMIT ?
         """,
-        (query, int(max_results)),
-    ))
+            (query, int(max_results)),
+        )
+    )
 
 
 def count_events(conn: sqlite3.Connection, source: str | None = None) -> int:
     if source is None:
         return int(conn.execute("SELECT COUNT(*) AS c FROM events").fetchone()["c"])
-    return int(conn.execute(
-        "SELECT COUNT(*) AS c FROM events WHERE source = ?", (source,)
-    ).fetchone()["c"])
+    return int(
+        conn.execute("SELECT COUNT(*) AS c FROM events WHERE source = ?", (source,)).fetchone()["c"]
+    )
 
 
 def get_source_state(conn: sqlite3.Connection, source: str) -> dict | None:
-    row = conn.execute(
-        "SELECT * FROM source_state WHERE source = ?", (source,)
-    ).fetchone()
+    row = conn.execute("SELECT * FROM source_state WHERE source = ?", (source,)).fetchone()
     if row is None:
         return None
     cursor = row["cursor_json"]

@@ -11,6 +11,7 @@ Public:
     locate_profile(browser="chrome") -> Path | None
     read_events(history_db_path, *, since_ts=None) -> Iterator[Event]
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,6 +59,7 @@ _PLATFORM_PROFILES: dict[str, dict[str, list[str]]] = {
 def locate_profile(browser: str = "chrome") -> Path | None:
     """Find the default Chromium profile directory for the running platform."""
     import sys
+
     table = _PLATFORM_PROFILES.get(sys.platform)
     if not table:
         return None

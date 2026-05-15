@@ -2,6 +2,7 @@
 
 We mock the HTTP functions to keep tests offline and deterministic.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,26 +20,33 @@ def _load(name: str) -> dict:
 
 # -- parse_semver / in_range ----------------------------------------------------
 
-@pytest.mark.parametrize("v,expected", [
-    ("1.2.3", (1, 2, 3, "~")),
-    ("v1.2.3", (1, 2, 3, "~")),
-    ("1.0.0-alpha", (1, 0, 0, "alpha")),
-    ("1.0.0a1", (1, 0, 0, "a1")),
-    ("1.0.0rc1", (1, 0, 0, "rc1")),
-    ("1.0.0.dev1", (1, 0, 0, "dev1")),
-    ("not-a-version", (0, 0, 0, "not-a-version")),
-])
+
+@pytest.mark.parametrize(
+    "v,expected",
+    [
+        ("1.2.3", (1, 2, 3, "~")),
+        ("v1.2.3", (1, 2, 3, "~")),
+        ("1.0.0-alpha", (1, 0, 0, "alpha")),
+        ("1.0.0a1", (1, 0, 0, "a1")),
+        ("1.0.0rc1", (1, 0, 0, "rc1")),
+        ("1.0.0.dev1", (1, 0, 0, "dev1")),
+        ("not-a-version", (0, 0, 0, "not-a-version")),
+    ],
+)
 def test_parse_semver(v, expected):
     assert frn.parse_semver(v) == expected
 
 
-@pytest.mark.parametrize("v,is_stable", [
-    ("1.2.3", True),
-    ("v1.2.3", True),
-    ("2.0.0-rc.1", False),
-    ("2.0.0a1", False),
-    ("2.0.0.dev1", False),
-])
+@pytest.mark.parametrize(
+    "v,is_stable",
+    [
+        ("1.2.3", True),
+        ("v1.2.3", True),
+        ("2.0.0-rc.1", False),
+        ("2.0.0a1", False),
+        ("2.0.0.dev1", False),
+    ],
+)
 def test_is_stable(v, is_stable):
     assert frn.is_stable(v) is is_stable
 
@@ -57,13 +65,17 @@ def test_in_range_skips_prereleases():
 
 # -- repo URL parsing -----------------------------------------------------------
 
+
 def test_parse_repo_url_npm_dict():
     meta = _load("npm_react_minimal.json")
     assert frn.parse_repo_url(meta) == "https://github.com/facebook/react"
 
 
 def test_parse_repo_url_npm_handles_string():
-    assert frn.parse_repo_url({"repository": "git+ssh://git@github.com:foo/bar.git"}) == "https://github.com/foo/bar"
+    assert (
+        frn.parse_repo_url({"repository": "git+ssh://git@github.com:foo/bar.git"})
+        == "https://github.com/foo/bar"
+    )
 
 
 def test_parse_repo_url_npm_missing():
@@ -81,6 +93,7 @@ def test_repo_slug():
 
 
 # -- end-to-end fetch (mocked HTTP) --------------------------------------------
+
 
 @pytest.fixture
 def offline(monkeypatch):
@@ -129,6 +142,7 @@ def test_fetch_release_notes_unsupported_ecosystem():
 
 
 # -- disk cache -----------------------------------------------------------------
+
 
 def test_cache_round_trip(tmp_path, monkeypatch):
     monkeypatch.setattr(frn, "CACHE_DIR", tmp_path)

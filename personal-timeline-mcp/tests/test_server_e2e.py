@@ -4,6 +4,7 @@ Uses the FastMCP in-memory `Client` transport so every tool is exercised
 through the real list_tools + call_tool code path. Re-runnable in CI without
 launching a real MCP client process.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,10 +18,12 @@ def server(tmp_path, monkeypatch):
     """Fresh server module per test, pointed at a tmp DB."""
     monkeypatch.setenv("PERSONAL_TIMELINE_DB", str(tmp_path / "e2e.db"))
     import sys
+
     for name in list(sys.modules):
         if name.startswith("personal_timeline"):
             del sys.modules[name]
     from personal_timeline.server import mcp
+
     return mcp
 
 
@@ -80,7 +83,9 @@ async def test_find_session_returns_empty_on_fresh_db(server):
 @pytest.mark.asyncio
 async def test_timeline_around_accepts_iso_and_epoch(server):
     async with Client(server) as client:
-        r1 = await client.call_tool("timeline_around", {"timestamp": "2026-05-15T12:00:00Z", "window": "30m"})
+        r1 = await client.call_tool(
+            "timeline_around", {"timestamp": "2026-05-15T12:00:00Z", "window": "30m"}
+        )
         r2 = await client.call_tool("timeline_around", {"timestamp": "1747310400", "window": "30m"})
     p1 = json.loads(r1.content[0].text)
     p2 = json.loads(r2.content[0].text)

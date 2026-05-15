@@ -10,6 +10,7 @@ The server keeps one SQLite connection alive for the process lifetime. The DB
 path defaults to `~/.screenshot-search/index.db` and can be overridden with
 the `SCREENSHOT_SEARCH_DB` env var.
 """
+
 from __future__ import annotations
 
 import os
@@ -175,8 +176,11 @@ def search_visual(query: str, since: str | None = None, max_results: int = 10) -
         return {"error": str(exc), "results": [], "count": 0}
 
     pairs = store.nearest_neighbors(
-        conn, query_vec, clip.model_tag(),
-        max_results=max_results, since=since_ts,
+        conn,
+        query_vec,
+        clip.model_tag(),
+        max_results=max_results,
+        since=since_ts,
     )
     return {
         "model": clip.model_tag(),
@@ -215,22 +219,28 @@ def find_similar(image_path: str, max_results: int = 10) -> dict:
         return {"error": str(exc), "results": [], "count": 0}
 
     import struct
+
     dim = len(blob) // 4
     vector = list(struct.unpack(f"<{dim}f", blob))
 
     pairs = store.nearest_neighbors(
-        conn, vector, clip.model_tag(), max_results=max_results + 1,
+        conn,
+        vector,
+        clip.model_tag(),
+        max_results=max_results + 1,
     )
     out = []
     for row, score in pairs:
         if row["path"] == str(ref):
             continue
-        out.append({
-            "path": row["path"],
-            "mtime": float(row["mtime"]),
-            "size": int(row["size"]),
-            "score": float(score),
-        })
+        out.append(
+            {
+                "path": row["path"],
+                "mtime": float(row["mtime"]),
+                "size": int(row["size"]),
+                "score": float(score),
+            }
+        )
         if len(out) >= max_results:
             break
     return {
@@ -280,6 +290,7 @@ def get_metadata(image_path: str) -> dict:
 
     try:
         from PIL import ExifTags, Image  # type: ignore[import-not-found]
+
         with Image.open(target) as img:
             out["width"], out["height"] = img.size
             out["format"] = img.format
@@ -322,11 +333,11 @@ def _safe_exif_value(val):
             return val.decode("utf-8", errors="replace")
         except Exception:
             return repr(val)
-    if isinstance(val, (list, tuple)):
+    if isinstance(val, list | tuple):
         return [_safe_exif_value(v) for v in val]
     if hasattr(val, "numerator") and hasattr(val, "denominator"):
         return float(val) if val.denominator else 0.0
-    if isinstance(val, (int, float, str, bool)) or val is None:
+    if isinstance(val, int | float | str | bool) or val is None:
         return val
     return str(val)
 

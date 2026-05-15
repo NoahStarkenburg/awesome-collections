@@ -8,6 +8,7 @@ Usage:
 The server itself is `personal-timeline-mcp` (in server.py). The CLI is for
 out-of-band setup and maintenance.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +32,7 @@ def cmd_init(args) -> int:
     print()
     print("Next steps:")
     print(f"  1. Edit {written} — enable sources and point at your repos/dirs/ics files.")
-    print( "  2. Run `personal-timeline index` to populate the timeline.")
+    print("  2. Run `personal-timeline index` to populate the timeline.")
     return 0
 
 
@@ -82,6 +83,7 @@ def cmd_index(args) -> int:
 
     # Reuse the server's dispatcher so the CLI and MCP path stay in lockstep.
     import os
+
     os.environ["PERSONAL_TIMELINE_DB"] = str(db_path)
     for mod in list(sys.modules):
         if mod.startswith("personal_timeline.server"):
@@ -105,21 +107,31 @@ def build_parser() -> argparse.ArgumentParser:
         prog="personal-timeline",
         description="Local activity timeline — admin CLI for the MCP server.",
     )
-    p.add_argument("--config", help="path to config.toml (default: ~/.personal-timeline/config.toml)")
-    p.add_argument("--db", help="path to index.db (default: from config or ~/.personal-timeline/index.db)")
+    p.add_argument(
+        "--config", help="path to config.toml (default: ~/.personal-timeline/config.toml)"
+    )
+    p.add_argument(
+        "--db", help="path to index.db (default: from config or ~/.personal-timeline/index.db)"
+    )
     sub = p.add_subparsers(dest="command", required=True)
 
     init_p = sub.add_parser("init", help="Bootstrap config + database")
     init_p.set_defaults(func=cmd_init)
 
     idx_p = sub.add_parser("index", help="Reindex every enabled source")
-    idx_p.add_argument("--force-full", action="store_true",
-                       help="Clear source_state first so every source rewalks from the start")
+    idx_p.add_argument(
+        "--force-full",
+        action="store_true",
+        help="Clear source_state first so every source rewalks from the start",
+    )
     idx_p.set_defaults(func=cmd_index)
 
     wipe_p = sub.add_parser("wipe", help="Delete the index database (privacy)")
-    wipe_p.add_argument("--yes", action="store_true",
-                        help="Actually delete (without this flag, command is a dry-run)")
+    wipe_p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Actually delete (without this flag, command is a dry-run)",
+    )
     wipe_p.set_defaults(func=cmd_wipe)
 
     return p

@@ -4,6 +4,7 @@ Each test creates a throw-away git repo in tmp_path and asserts the reader +
 ingestor return the right shape. The test repo is configured with a fixed
 identity so commits are deterministic across machines.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -16,12 +17,16 @@ from personal_timeline.sources import git as gitsrc
 
 def _run(repo: Path, *args: str, env_extra: dict | None = None) -> str:
     import os
+
     env = os.environ.copy()
     if env_extra:
         env.update(env_extra)
     out = subprocess.run(
         ["git", "-C", str(repo)] + list(args),
-        check=True, capture_output=True, text=True, env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
     )
     return out.stdout
 
@@ -74,6 +79,7 @@ def fixture_repo(tmp_path: Path) -> Path:
 
 # -- list_commits / read_events -----------------------------------------------
 
+
 def test_list_commits_returns_all(fixture_repo: Path):
     commits = gitsrc.list_commits(fixture_repo)
     assert len(commits) == 3
@@ -91,8 +97,14 @@ def test_list_commits_since_filter(fixture_repo: Path):
 
 
 def test_list_commits_author_filter(fixture_repo: Path):
-    _commit(fixture_repo, "c.py", "z = 3\n", "From other person",
-            author="Other Person <other@example.com>", when=1715000250)
+    _commit(
+        fixture_repo,
+        "c.py",
+        "z = 3\n",
+        "From other person",
+        author="Other Person <other@example.com>",
+        when=1715000250,
+    )
     mine = gitsrc.list_commits(fixture_repo, author_email="tester@example.com")
     assert len(mine) == 3
     assert all(c["author_email"] == "tester@example.com" for c in mine)
@@ -107,6 +119,7 @@ def test_read_events_shape(fixture_repo: Path):
 
 
 # -- incremental ingest -------------------------------------------------------
+
 
 def test_ingest_repo_is_incremental(fixture_repo: Path, tmp_path: Path):
     db = tmp_path / "ingest.db"

@@ -8,6 +8,7 @@ the indexer.
 Run standalone:
     python -m screenshot_search.watch /path/to/screenshots
 """
+
 from __future__ import annotations
 
 import argparse
@@ -61,7 +62,9 @@ class _DebouncedHandler:
                 result = index.index_directory(self.conn, directory, recursive=False)
                 log.info(
                     "reindexed %s: indexed=%d skipped=%d",
-                    directory, result.indexed, result.skipped_unchanged,
+                    directory,
+                    result.indexed,
+                    result.skipped_unchanged,
                 )
             except Exception as exc:  # pragma: no cover - defensive
                 log.warning("Reindex failed for %s: %s", directory, exc)
@@ -111,7 +114,9 @@ def watch(
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Watch a directory and reindex on changes.")
     p.add_argument("root", help="directory to watch")
-    p.add_argument("--db", default=None, help="SQLite index path (default: ~/.screenshot-search/index.db)")
+    p.add_argument(
+        "--db", default=None, help="SQLite index path (default: ~/.screenshot-search/index.db)"
+    )
     p.add_argument("--no-recursive", action="store_true", help="watch root only, no subdirs")
     p.add_argument("--debounce", type=float, default=2.0, help="debounce window in seconds")
     p.add_argument("--quiet", action="store_true")
@@ -123,7 +128,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     db_path = args.db or str(Path.home() / ".screenshot-search" / "index.db")
     observer = watch(
-        args.root, db_path,
+        args.root,
+        db_path,
         recursive=not args.no_recursive,
         debounce_seconds=args.debounce,
     )
@@ -139,4 +145,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

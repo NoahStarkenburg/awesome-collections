@@ -9,6 +9,7 @@ CLIP- and Tesseract-dependent paths are NOT exercised live (the model and binary
 aren't guaranteed to exist in this env). Those tools are called only to confirm
 they return graceful error payloads instead of raising.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,10 +25,12 @@ def server(tmp_path, monkeypatch):
     """Fresh server instance per test, pointed at a tmp DB."""
     monkeypatch.setenv("SCREENSHOT_SEARCH_DB", str(tmp_path / "e2e.db"))
     import sys
+
     for name in list(sys.modules):
         if name.startswith("screenshot_search"):
             del sys.modules[name]
     from screenshot_search.server import mcp
+
     return mcp
 
 
@@ -39,7 +42,11 @@ def sample_image(tmp_path):
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro) if asyncio.get_event_loop_policy()._local._loop else asyncio.run(coro)
+    return (
+        asyncio.get_event_loop().run_until_complete(coro)
+        if asyncio.get_event_loop_policy()._local._loop
+        else asyncio.run(coro)
+    )
 
 
 @pytest.mark.asyncio
@@ -97,9 +104,7 @@ async def test_index_then_search_text(server, tmp_path, sample_image):
 @pytest.mark.asyncio
 async def test_get_metadata_via_protocol(server, sample_image):
     async with Client(server) as client:
-        result = await client.call_tool(
-            "get_metadata", {"image_path": str(sample_image)}
-        )
+        result = await client.call_tool("get_metadata", {"image_path": str(sample_image)})
     payload = json.loads(result.content[0].text)
     assert payload["path"] == str(sample_image)
     assert payload["width"] == 64
@@ -110,9 +115,7 @@ async def test_get_metadata_via_protocol(server, sample_image):
 @pytest.mark.asyncio
 async def test_extract_text_handles_missing_file(server):
     async with Client(server) as client:
-        result = await client.call_tool(
-            "extract_text", {"image_path": "/does/not/exist.png"}
-        )
+        result = await client.call_tool("extract_text", {"image_path": "/does/not/exist.png"})
     payload = json.loads(result.content[0].text)
     assert "error" in payload
     assert payload["text"] == ""
@@ -126,9 +129,7 @@ async def test_visual_tools_degrade_gracefully_without_clip(server, sample_image
     """
     async with Client(server) as client:
         sv = await client.call_tool("search_visual", {"query": "test"})
-        fs = await client.call_tool(
-            "find_similar", {"image_path": str(sample_image)}
-        )
+        fs = await client.call_tool("find_similar", {"image_path": str(sample_image)})
     sv_payload = json.loads(sv.content[0].text)
     fs_payload = json.loads(fs.content[0].text)
     # Either a real result or a graceful error — never a crash.

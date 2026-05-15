@@ -4,6 +4,7 @@ Loads `open_clip` ViT-B/32 lazily so server startup stays fast — `ping` works
 without ever loading CLIP. Embedding functions normalize vectors to unit length
 and serialize them as float32 BLOBs for the `embeddings` table.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,7 +51,9 @@ def load() -> dict[str, Any]:
                 "Install with: pip install open-clip-torch"
             ) from exc
 
-        device = "cuda" if (os.environ.get("CLIP_USE_CUDA") and torch.cuda.is_available()) else "cpu"
+        device = (
+            "cuda" if (os.environ.get("CLIP_USE_CUDA") and torch.cuda.is_available()) else "cpu"
+        )
         log.info("Loading CLIP %s/%s on %s …", DEFAULT_MODEL, DEFAULT_PRETRAINED, device)
         model, _, preprocess = open_clip.create_model_and_transforms(
             DEFAULT_MODEL, pretrained=DEFAULT_PRETRAINED, device=device

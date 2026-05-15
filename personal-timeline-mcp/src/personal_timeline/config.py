@@ -30,6 +30,7 @@ Shape:
 When the file is missing, `load()` returns Config.defaults() — no error. Use
 `bootstrap()` to write a starter on first run.
 """
+
 from __future__ import annotations
 
 import tomllib
@@ -55,13 +56,17 @@ class Config:
 
     @classmethod
     def defaults(cls) -> Config:
-        return cls(sources={
-            "chrome": SourceConfig(enabled=False),
-            "firefox": SourceConfig(enabled=False),
-            "git": SourceConfig(enabled=False, options={"repos": [], "author_email": None}),
-            "filesystem": SourceConfig(enabled=False, options={"dirs": [], "ignore": list(DEFAULT_IGNORE)}),
-            "calendar": SourceConfig(enabled=False, options={"ics_paths": []}),
-        })
+        return cls(
+            sources={
+                "chrome": SourceConfig(enabled=False),
+                "firefox": SourceConfig(enabled=False),
+                "git": SourceConfig(enabled=False, options={"repos": [], "author_email": None}),
+                "filesystem": SourceConfig(
+                    enabled=False, options={"dirs": [], "ignore": list(DEFAULT_IGNORE)}
+                ),
+                "calendar": SourceConfig(enabled=False, options={"ics_paths": []}),
+            }
+        )
 
     def enabled_sources(self) -> list[str]:
         return [name for name, sc in self.sources.items() if sc.enabled]
