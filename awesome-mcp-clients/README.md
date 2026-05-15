@@ -36,6 +36,7 @@ _Coming soon._
 - **[5ire](https://github.com/nanbingxyz/5ire)** — 5ire is a cross-platform desktop AI assistant, MCP client. It compatible with major service providers,  supports local knowledge base and  tools via model context protocol servers . ⭐ 5.2k · TypeScript · NOASSERTION · updated 8w ago
 - **[anything-llm](https://github.com/Mintplex-Labs/anything-llm)** — The all-in-one AI productivity accelerator. On device and privacy first with no annoying setup or configuration. ⭐ 60.1k · JavaScript · MIT · updated today
 - **[jan](https://github.com/janhq/jan)** — Jan is an open source alternative to ChatGPT that runs 100% offline on your computer. ⭐ 42.5k · TypeScript · NOASSERTION · updated today
+- **[tome](https://github.com/runebookai/tome)** — a magical LLM desktop client that makes it easy for *anyone* to use LLMs and MCP. ⭐ 618 · Svelte · Apache-2.0 · updated 6mo ago
 
 ## Web Chat Interfaces
 
