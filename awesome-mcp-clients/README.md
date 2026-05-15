@@ -46,6 +46,7 @@ _Coming soon._
 ## CLIs & Dev Tools
 
 - **[fast-agent](https://github.com/evalstate/fast-agent)** — Code, Build and Evaluate agents - excellent Model and Skills/MCP/ACP Support. ⭐ 3.8k · Python · Apache-2.0 · updated 1d ago
+- **[mcp-cli](https://github.com/IBM/mcp-cli)** — No description. ⭐ 2k · Python · Apache-2.0 · updated 4w ago
 
 ---
 
