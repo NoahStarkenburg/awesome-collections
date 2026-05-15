@@ -12,7 +12,6 @@ they return graceful error payloads instead of raising.
 
 from __future__ import annotations
 
-import asyncio
 import json
 
 import pytest
@@ -39,14 +38,6 @@ def sample_image(tmp_path):
     p = tmp_path / "screenshot.png"
     Image.new("RGB", (64, 64), color=(50, 100, 200)).save(p)
     return p
-
-
-def _run(coro):
-    return (
-        asyncio.get_event_loop().run_until_complete(coro)
-        if asyncio.get_event_loop_policy()._local._loop
-        else asyncio.run(coro)
-    )
 
 
 @pytest.mark.asyncio
