@@ -57,6 +57,21 @@ def _get_conn():
         return _conn
 
 
+def reset_connection() -> None:
+    """Drop the cached SQLite connection. Call this from out-of-band entry
+    points (the CLI, tests) when you've changed the DB path after the server
+    module was already imported. The next `_get_conn()` call will reopen
+    against the current `_db_path()`."""
+    global _conn
+    with _conn_lock:
+        if _conn is not None:
+            try:
+                _conn.close()
+            except Exception:
+                pass
+            _conn = None
+
+
 @mcp.tool()
 def ping() -> dict:
     """Health check. Returns server version, Python version, and current time.
