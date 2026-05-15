@@ -28,10 +28,12 @@ from . import __version__, config, store
 mcp = FastMCP(
     name="personal-timeline",
     instructions=(
-        "Local activity timeline aggregator (browser history, git commits, "
-        "filesystem mtimes, calendar). v0.0.1 — only `ping` is wired up so far. "
-        "Real tools (index_sources, timeline_around, summarize_workday, etc.) "
-        "land in subsequent commits."
+        "Local activity timeline aggregator. Sources: browser history "
+        "(Chrome/Edge/Brave/Firefox), git commits, filesystem mtimes, "
+        "calendar (.ics). All local — no network. Call `list_sources()` "
+        "first to see what's configured. Use `index_sources()` to populate "
+        "the index, then `timeline_around()`, `what_changed_today()`, "
+        "`find_session()`, `summarize_workday()`, or `correlate()`."
     ),
 )
 
@@ -123,15 +125,18 @@ def list_sources() -> dict:
 def index_sources(force_full: bool = False) -> dict:
     """Drive every enabled source through its ingest pipeline.
 
-    Sources covered:
+    Sources covered (each only runs if its `enabled = true` in config.toml):
         - `git`        — every repo under `[sources.git].repos`
         - `filesystem` — every dir under `[sources.filesystem].dirs`
-        - `chrome` / `firefox` — placeholders for now (need profile_dir from config)
+        - `chrome` / `firefox` — auto-locate the History/places DB, or use
+          `[sources.<name>].profile_dir` (Chromium) / `history_db`/`places_db`
+          to point at an explicit path
         - `calendar`   — every path under `[sources.calendar].ics_paths`
 
     Args:
         force_full: if true, clear `source_state` for each enabled source so
-            the next pass walks from the beginning.
+            the next pass walks from the beginning. State for *disabled*
+            sources is preserved.
 
     Returns: {results: {source: <per-source result>}, total_ingested, errors}.
     """
