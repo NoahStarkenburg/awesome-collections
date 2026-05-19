@@ -101,6 +101,7 @@ def offline(monkeypatch):
     npm = _load("npm_react_minimal.json")
     pypi = _load("pypi_requests_minimal.json")
     crates = _load("crates_serde_minimal.json")
+    packagist = _load("packagist_monolog_minimal.json")
     changelog = (FIXTURES / "changelog_minimal.md").read_text(encoding="utf-8")
 
     def fake_json(url, timeout=15):
@@ -110,6 +111,8 @@ def offline(monkeypatch):
             return pypi
         if "crates.io/api/v1/crates/serde" in url:
             return crates
+        if "repo.packagist.org/p2/monolog/monolog.json" in url:
+            return packagist
         if "api.github.com" in url and "releases" in url:
             return []
         raise AssertionError(f"unexpected JSON GET: {url}")
@@ -141,7 +144,7 @@ def test_fetch_release_notes_pypi(offline):
 
 def test_fetch_release_notes_unsupported_ecosystem():
     with pytest.raises(NotImplementedError):
-        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "composer")
+        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "rubygems")
 
 
 # -- crates.io / Cargo ---------------------------------------------------------
@@ -172,6 +175,37 @@ def test_fetch_release_notes_cargo(offline):
     assert result["repo_url"] == "https://github.com/serde-rs/serde"
     # 1.0.196 is yanked — excluded. 1.0.193 is lo-exclusive. 2.0.0-rc.1 is past hi.
     assert result["versions"] == ["1.0.194", "1.0.195", "1.0.197"]
+
+
+# -- Packagist / Composer ------------------------------------------------------
+
+
+def test_parse_repo_url_packagist():
+    meta = _load("packagist_monolog_minimal.json")
+    assert (
+        frn.parse_repo_url_packagist(meta, "monolog/monolog")
+        == "https://github.com/Seldaek/monolog"
+    )
+
+
+def test_parse_repo_url_packagist_missing():
+    assert frn.parse_repo_url_packagist({}, "vendor/missing") is None
+
+
+def test_list_packagist_versions_strips_v_prefix():
+    meta = _load("packagist_monolog_minimal.json")
+    versions = frn.list_packagist_versions(meta, "monolog/monolog")
+    # `v3.3.1` should appear as `3.3.1` so parse_semver handles it.
+    assert "3.3.1" in versions
+    assert "v3.3.1" not in versions
+
+
+def test_fetch_release_notes_composer(offline):
+    result = frn.fetch_release_notes("monolog/monolog", "3.3.1", "3.5.0", "composer")
+    assert result["ecosystem"] == "composer"
+    assert result["repo_url"] == "https://github.com/Seldaek/monolog"
+    # 3.6.0-RC1 prerelease excluded; 3.3.1 lo-exclusive excluded.
+    assert result["versions"] == ["3.4.0", "3.5.0"]
 
 
 # -- disk cache -----------------------------------------------------------------
