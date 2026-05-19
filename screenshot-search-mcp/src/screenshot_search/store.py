@@ -243,9 +243,33 @@ def nearest_neighbors(
     *,
     max_results: int = 10,
     since: float | None = None,
+    use_faiss: bool | None = None,
 ) -> list[tuple[sqlite3.Row, float]]:
-    """Cosine-similarity ranking. Loads all vectors into memory — fine for v1
-    (~thousands of images); revisit when the index grows past ~100k."""
+    """Cosine-similarity ranking with an optional FAISS fast path.
+
+    `use_faiss`:
+      - `None` (default): pick automatically — FAISS when the optional extra
+        is installed AND the corpus passes `faiss_search.FAISS_THRESHOLD`.
+      - `True`: force FAISS. Raises ImportError if the extra isn't installed.
+      - `False`: force the in-Python cosine path. Useful for tests / debugging.
+
+    Both paths return results in identical (row, score) shape.
+    """
+    from . import faiss_search
+
+    if use_faiss is None:
+        if faiss_search.is_available():
+            corpus_size = conn.execute(
+                "SELECT COUNT(*) AS c FROM embeddings WHERE model = ?",
+                (model,),
+            ).fetchone()["c"]
+            use_faiss = corpus_size >= faiss_search.FAISS_THRESHOLD
+        else:
+            use_faiss = False
+
+    if use_faiss:
+        return faiss_search.search(conn, query_vector, model, max_results=max_results, since=since)
+
     import math
 
     q = list(query_vector)
