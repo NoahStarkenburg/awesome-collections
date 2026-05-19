@@ -29,7 +29,7 @@ mcp = FastMCP(
     name="personal-timeline",
     instructions=(
         "Local activity timeline aggregator. Sources: browser history "
-        "(Chrome/Edge/Brave/Firefox), git commits, filesystem mtimes, "
+        "(Chrome/Edge/Brave/Firefox/Safari), git commits, filesystem mtimes, "
         "calendar (.ics). All local — no network. Call `list_sources()` "
         "first to see what's configured. Use `index_sources()` to populate "
         "the index, then `timeline_around()`, `what_changed_today()`, "
@@ -501,7 +501,7 @@ def _row_to_dict(row) -> dict:
 def _ingest_one(conn, source: str, opts: dict) -> dict:
     """Dispatch one source's options to its reader/ingestor."""
     from .sources import calendar as calsrc
-    from .sources import chrome, firefox
+    from .sources import chrome, firefox, safari
     from .sources import filesystem as fssrc
     from .sources import git as gitsrc
 
@@ -526,21 +526,34 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
                 ingested += 1
         return {"ingested": ingested, "ics_paths": ics_paths}
 
-    if source in ("chrome", "firefox"):
+    if source in ("chrome", "firefox", "safari"):
         # Browser indexing needs a concrete History/places.sqlite path — either
         # explicit in config or auto-located.
         explicit = opts.get("history_db") or opts.get("places_db")
-        reader = chrome if source == "chrome" else firefox
+        if source == "chrome":
+            reader = chrome
+        elif source == "firefox":
+            reader = firefox
+        else:
+            reader = safari
         if explicit:
             path = Path(explicit).expanduser()
         else:
-            profile = chrome.locate_profile() if source == "chrome" else firefox.locate_profile()
+            if source == "chrome":
+                profile = chrome.locate_profile()
+                db_name = "History"
+            elif source == "firefox":
+                profile = firefox.locate_profile()
+                db_name = "places.sqlite"
+            else:
+                profile = safari.locate_profile()
+                db_name = "History.db"
             if profile is None:
                 return {
                     "ingested": 0,
                     "note": "profile not located — set [sources.<name>].profile_dir",
                 }
-            path = profile / ("History" if source == "chrome" else "places.sqlite")
+            path = profile / db_name
         if not path.is_file():
             return {"ingested": 0, "note": f"DB not found at {path}"}
         state = store.get_source_state(conn, source)
