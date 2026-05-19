@@ -133,11 +133,7 @@ def read_events(
         if not uri:
             continue
         local_path = _decode_uri_to_path(uri)
-        title = (
-            Path(local_path).name
-            if local_path
-            else uri.rsplit("/", 1)[-1] or uri
-        )
+        title = Path(local_path).name if local_path else uri.rsplit("/", 1)[-1] or uri
         yield Event(
             source=source_name,
             source_id=f"workspace:{entry.name}",

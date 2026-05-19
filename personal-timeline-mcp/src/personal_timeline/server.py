@@ -604,9 +604,7 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
         for flavor in flavors:
             for storage_dir in vscode.locate_storage_dirs(flavor):
                 dirs_seen.append(str(storage_dir))
-                for event in vscode.read_events(
-                    storage_dir, source_name=source, since_ts=since
-                ):
+                for event in vscode.read_events(storage_dir, source_name=source, since_ts=since):
                     store.upsert_event(conn, event)
                     ingested += 1
                     if high is None or event.ts > high:
