@@ -23,7 +23,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, clip, colors, index, ocr, store
+from . import __version__, clip, colors, config, index, ocr, store
 
 mcp = FastMCP(
     name="screenshot-search",
@@ -94,25 +94,39 @@ def index_status() -> dict:
 
 
 @mcp.tool()
-def index_directory(path: str, recursive: bool = True) -> dict:
+def index_directory(
+    path: str,
+    recursive: bool = True,
+    ocr_languages: list[str] | None = None,
+) -> dict:
     """Scan a directory for images and OCR-index any new or changed files.
 
     Args:
         path: directory to scan (absolute or expandable).
         recursive: walk subdirectories. Defaults to true.
+        ocr_languages: optional list of ISO 639-2 codes (e.g. ["eng", "spa"]).
+            Overrides the value from config.toml's `ocr_languages`. If both
+            are absent, defaults to ["eng"]. Each language listed must have a
+            matching Tesseract language pack installed.
 
     Returns a summary dict: scanned, indexed, skipped_unchanged, errored,
-    last_path. Call this before `search_text` / `search_visual`.
+    last_path, ocr_lang. Call this before `search_text` / `search_visual`.
     """
     global _last_result
     target = Path(path).expanduser().resolve()
     if not target.is_dir():
         return {"error": f"Not a directory: {target}"}
 
+    if ocr_languages:
+        ocr_lang = "+".join(ocr_languages)
+    else:
+        ocr_lang = config.load().tesseract_lang()
+
     conn = _get_conn()
-    result = index.index_directory(conn, target, recursive=recursive)
+    result = index.index_directory(conn, target, recursive=recursive, ocr_lang=ocr_lang)
     payload = result.as_dict()
     payload["root"] = str(target)
+    payload["ocr_lang"] = ocr_lang
     _last_result = payload
     return payload
 

@@ -64,7 +64,13 @@ def iter_pdf_paths(root: Path, *, recursive: bool = True) -> Iterator[Path]:
             yield path
 
 
-def _index_pdf(conn, pdf_path: Path, *, skip_ocr: bool = False) -> tuple[int, int]:
+def _index_pdf(
+    conn,
+    pdf_path: Path,
+    *,
+    skip_ocr: bool = False,
+    ocr_lang: str = "eng",
+) -> tuple[int, int]:
     """Rasterize a PDF's pages and upsert one row per page.
 
     Each page is written to a temp PNG, OCR'd, then upserted with path
@@ -93,7 +99,7 @@ def _index_pdf(conn, pdf_path: Path, *, skip_ocr: bool = False) -> tuple[int, in
                 tmp_path = Path(f.name)
             try:
                 pil_image.save(tmp_path, "PNG")
-                text = "" if skip_ocr else ocr.extract_text(tmp_path)
+                text = "" if skip_ocr else ocr.extract_text(tmp_path, lang=ocr_lang)
                 page_rgb = colors.dominant_rgb(tmp_path)
             finally:
                 with contextlib.suppress(OSError):
@@ -131,6 +137,7 @@ def index_directory(
     recursive: bool = True,
     skip_ocr: bool = False,
     include_pdfs: bool = True,
+    ocr_lang: str = "eng",
 ) -> IndexResult:
     """Walk `root`, OCR new/changed images + PDF pages, upsert rows into `conn`.
 
@@ -142,6 +149,8 @@ def index_directory(
             without running Tesseract.
         include_pdfs: rasterize and index each page of any PDFs found. Requires
             the `[pdf]` extra (pypdfium2). Silently no-op if it isn't installed.
+        ocr_lang: Tesseract `eng+spa+deu`-style language string. The
+            corresponding language packs must be installed on disk.
 
     Returns an `IndexResult` summary.
     """
@@ -165,7 +174,7 @@ def index_directory(
             result.skipped_unchanged += 1
             continue
 
-        text = "" if skip_ocr else ocr.extract_text(path)
+        text = "" if skip_ocr else ocr.extract_text(path, lang=ocr_lang)
         rgb = colors.dominant_rgb(path)
         try:
             store.upsert_image(
@@ -185,7 +194,7 @@ def index_directory(
         for path in iter_pdf_paths(root_path, recursive=recursive):
             result.scanned += 1
             result.last_path = str(path)
-            indexed, errored = _index_pdf(conn, path, skip_ocr=skip_ocr)
+            indexed, errored = _index_pdf(conn, path, skip_ocr=skip_ocr, ocr_lang=ocr_lang)
             result.indexed += indexed
             result.errored += errored
 
