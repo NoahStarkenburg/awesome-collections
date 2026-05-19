@@ -188,6 +188,40 @@ def fetch_pypi_metadata(package: str) -> dict:
     return http_get_json(f"https://pypi.org/pypi/{package}/json")
 
 
+def fetch_crates_metadata(package: str) -> dict:
+    """Fetch crate metadata from crates.io's v1 API.
+
+    Crates.io requires a meaningful User-Agent and rejects empty ones — the
+    project-wide USER_AGENT already passes that bar.
+    """
+    return http_get_json(f"https://crates.io/api/v1/crates/{package}")
+
+
+def parse_repo_url_crates(pkg_data: dict) -> str | None:
+    """Extract canonical github URL from a crates.io payload.
+
+    crates.io stores the canonical repository URL in `crate.repository`.
+    """
+    crate = pkg_data.get("crate") or {}
+    repo = crate.get("repository")
+    if not isinstance(repo, str):
+        return None
+    m = re.search(r"github\.com[:/]([^/]+)/([^/.\s]+)", repo)
+    if not m:
+        return None
+    return f"https://github.com/{m.group(1)}/{m.group(2)}"
+
+
+def list_crates_versions(pkg_data: dict) -> list[str]:
+    """Pull non-yanked version strings out of a crates.io payload."""
+    versions = pkg_data.get("versions") or []
+    return [
+        v["num"]
+        for v in versions
+        if isinstance(v, dict) and isinstance(v.get("num"), str) and not v.get("yanked")
+    ]
+
+
 def parse_repo_url_pypi(pkg_data: dict) -> str | None:
     """Extract canonical github URL from PyPI package metadata."""
     info = pkg_data.get("info") or {}
@@ -245,6 +279,10 @@ def fetch_release_notes(
         meta = fetch_pypi_metadata(package)
         all_versions = list((meta.get("releases") or {}).keys())
         repo_url = parse_repo_url_pypi(meta)
+    elif ecosystem == "cargo":
+        meta = fetch_crates_metadata(package)
+        all_versions = list_crates_versions(meta)
+        repo_url = parse_repo_url_crates(meta)
     else:
         raise NotImplementedError(f"ecosystem={ecosystem!r} not supported")
 
@@ -278,7 +316,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--to", dest="to_version", required=True, help="upper bound version (inclusive)")
     p.add_argument(
-        "--ecosystem", default="npm", choices=["npm", "pypi"], help="package registry to query"
+        "--ecosystem",
+        default="npm",
+        choices=["npm", "pypi", "cargo"],
+        help="package registry to query",
     )
     p.add_argument("--no-cache", action="store_true", help="bypass disk cache for this run")
     p.add_argument(

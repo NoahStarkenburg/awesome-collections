@@ -100,6 +100,7 @@ def offline(monkeypatch):
     """Stub the network layer so tests don't hit the internet."""
     npm = _load("npm_react_minimal.json")
     pypi = _load("pypi_requests_minimal.json")
+    crates = _load("crates_serde_minimal.json")
     changelog = (FIXTURES / "changelog_minimal.md").read_text(encoding="utf-8")
 
     def fake_json(url, timeout=15):
@@ -107,6 +108,8 @@ def offline(monkeypatch):
             return npm
         if "pypi.org/pypi/requests/json" in url:
             return pypi
+        if "crates.io/api/v1/crates/serde" in url:
+            return crates
         if "api.github.com" in url and "releases" in url:
             return []
         raise AssertionError(f"unexpected JSON GET: {url}")
@@ -138,7 +141,37 @@ def test_fetch_release_notes_pypi(offline):
 
 def test_fetch_release_notes_unsupported_ecosystem():
     with pytest.raises(NotImplementedError):
-        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "cargo")
+        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "composer")
+
+
+# -- crates.io / Cargo ---------------------------------------------------------
+
+
+def test_parse_repo_url_crates():
+    meta = _load("crates_serde_minimal.json")
+    assert frn.parse_repo_url_crates(meta) == "https://github.com/serde-rs/serde"
+
+
+def test_parse_repo_url_crates_missing():
+    assert frn.parse_repo_url_crates({"crate": {}}) is None
+    assert frn.parse_repo_url_crates({}) is None
+
+
+def test_list_crates_versions_filters_yanked():
+    meta = _load("crates_serde_minimal.json")
+    # 1.0.196 is yanked in the fixture and must not appear.
+    versions = frn.list_crates_versions(meta)
+    assert "1.0.196" not in versions
+    assert "1.0.197" in versions
+    assert "2.0.0-rc.1" in versions  # yanked status, not stability — keep prerelease
+
+
+def test_fetch_release_notes_cargo(offline):
+    result = frn.fetch_release_notes("serde", "1.0.193", "1.0.197", "cargo")
+    assert result["ecosystem"] == "cargo"
+    assert result["repo_url"] == "https://github.com/serde-rs/serde"
+    # 1.0.196 is yanked — excluded. 1.0.193 is lo-exclusive. 2.0.0-rc.1 is past hi.
+    assert result["versions"] == ["1.0.194", "1.0.195", "1.0.197"]
 
 
 # -- disk cache -----------------------------------------------------------------
