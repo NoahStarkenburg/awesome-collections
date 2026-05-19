@@ -29,7 +29,8 @@ mcp = FastMCP(
     name="personal-timeline",
     instructions=(
         "Local activity timeline aggregator. Sources: browser history "
-        "(Chrome/Edge/Brave/Firefox/Safari), git commits, filesystem mtimes, "
+        "(Chrome/Edge/Brave/Firefox/Safari), VS Code workspaces, "
+        "git commits, filesystem mtimes, "
         "calendar (.ics). All local — no network. Call `list_sources()` "
         "first to see what's configured. Use `index_sources()` to populate "
         "the index, then `timeline_around()`, `what_changed_today()`, "
@@ -501,7 +502,7 @@ def _row_to_dict(row) -> dict:
 def _ingest_one(conn, source: str, opts: dict) -> dict:
     """Dispatch one source's options to its reader/ingestor."""
     from .sources import calendar as calsrc
-    from .sources import chrome, firefox, safari
+    from .sources import chrome, firefox, safari, vscode
     from .sources import filesystem as fssrc
     from .sources import git as gitsrc
 
@@ -525,6 +526,27 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
                 store.upsert_event(conn, event)
                 ingested += 1
         return {"ingested": ingested, "ics_paths": ics_paths}
+
+    if source == "vscode":
+        flavors = opts.get("flavors") or ["code"]
+        state = store.get_source_state(conn, source)
+        since = state["last_event_ts"] if state and state.get("last_event_ts") else None
+        ingested = 0
+        high = since
+        dirs_seen: list[str] = []
+        for flavor in flavors:
+            for storage_dir in vscode.locate_storage_dirs(flavor):
+                dirs_seen.append(str(storage_dir))
+                for event in vscode.read_events(
+                    storage_dir, source_name=source, since_ts=since
+                ):
+                    store.upsert_event(conn, event)
+                    ingested += 1
+                    if high is None or event.ts > high:
+                        high = event.ts
+        if high is not None:
+            store.update_source_state(conn, source, last_event_ts=int(high))
+        return {"ingested": ingested, "storage_dirs": dirs_seen, "flavors": flavors}
 
     if source in ("chrome", "firefox", "safari"):
         # Browser indexing needs a concrete History/places.sqlite path — either
