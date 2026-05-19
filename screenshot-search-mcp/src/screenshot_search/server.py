@@ -23,7 +23,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, clip, index, ocr, store
+from . import __version__, clip, colors, index, ocr, store
 
 mcp = FastMCP(
     name="screenshot-search",
@@ -246,6 +246,50 @@ def find_similar(image_path: str, max_results: int = 10) -> dict:
     return {
         "model": clip.model_tag(),
         "reference": str(ref),
+        "count": len(out),
+        "results": out,
+    }
+
+
+@mcp.tool()
+def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) -> dict:
+    """Find indexed images whose dominant color matches `hex_color`.
+
+    Useful for "find the screenshot with the red error banner" or "show me the
+    screenshots from that dark-themed app" — search vectors only let you do this
+    via semantic phrases, but color matches the literal pixels.
+
+    Args:
+        hex_color: target color as `#RRGGBB` (the `#` is optional).
+        tolerance: per-channel slack, 0-255. 30 is a good "same-ish color"
+            default; tighten to ~10 for exact matches, widen to ~60 for "any
+            shade of blue".
+        max_results: cap on returned rows.
+    """
+    try:
+        target = colors.parse_hex(hex_color)
+    except ValueError as exc:
+        return {"error": str(exc), "results": [], "count": 0}
+
+    tolerance = max(0, min(255, int(tolerance)))
+    conn = _get_conn()
+    rows = store.search_by_color(conn, target, max_results=max_results, tolerance=tolerance)
+    out = []
+    for row, dist in rows:
+        r, g, b = colors.unpack_rgb(int(row["dominant_rgb"]))
+        out.append(
+            {
+                "path": row["path"],
+                "dominant_rgb": f"#{int(row['dominant_rgb']):06X}",
+                "rgb": [r, g, b],
+                "distance": int(dist),
+                "mtime": float(row["mtime"]),
+            }
+        )
+    return {
+        "query": hex_color,
+        "target_rgb": [colors.unpack_rgb(target)[0], *colors.unpack_rgb(target)[1:]],
+        "tolerance": tolerance,
         "count": len(out),
         "results": out,
     }

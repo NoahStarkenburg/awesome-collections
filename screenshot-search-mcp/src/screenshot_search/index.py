@@ -14,7 +14,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import ocr, pdf, store
+from . import colors, ocr, pdf, store
 
 log = logging.getLogger(__name__)
 
@@ -94,6 +94,7 @@ def _index_pdf(conn, pdf_path: Path, *, skip_ocr: bool = False) -> tuple[int, in
             try:
                 pil_image.save(tmp_path, "PNG")
                 text = "" if skip_ocr else ocr.extract_text(tmp_path)
+                page_rgb = colors.dominant_rgb(tmp_path)
             finally:
                 with contextlib.suppress(OSError):
                     tmp_path.unlink()
@@ -104,6 +105,7 @@ def _index_pdf(conn, pdf_path: Path, *, skip_ocr: bool = False) -> tuple[int, in
                     mtime=stat.st_mtime,
                     size=stat.st_size,
                     ocr_text=text,
+                    dominant_rgb=page_rgb,
                 )
                 indexed += 1
             except Exception as exc:  # pragma: no cover - defensive
@@ -164,6 +166,7 @@ def index_directory(
             continue
 
         text = "" if skip_ocr else ocr.extract_text(path)
+        rgb = colors.dominant_rgb(path)
         try:
             store.upsert_image(
                 conn,
@@ -171,6 +174,7 @@ def index_directory(
                 mtime=stat.st_mtime,
                 size=stat.st_size,
                 ocr_text=text,
+                dominant_rgb=rgb,
             )
             result.indexed += 1
         except Exception as exc:  # pragma: no cover - defensive
