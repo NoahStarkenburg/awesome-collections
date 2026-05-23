@@ -29,6 +29,11 @@ class Config:
     debounce_seconds: float = 2.0
     recursive: bool = True
     ocr_languages: list[str] = field(default_factory=lambda: ["eng"])
+    # Skip files larger than this many bytes during indexing. Big PNGs /
+    # multi-MB screenshots are usually noise (banner images, exported PDFs)
+    # and spending CLIP + OCR time on them is wasteful. 50 MB matches what
+    # a typical 4k screenshot takes.
+    max_index_bytes: int = 50 * 1024 * 1024
     source: Path | None = None
 
     @classmethod
@@ -70,6 +75,11 @@ def load(path: str | Path | None = None) -> Config:
         if not isinstance(raw, list) or not all(isinstance(x, str) for x in raw):
             raise ValueError("ocr_languages must be a list of strings, e.g. ['eng', 'spa']")
         cfg.ocr_languages = [s.strip() for s in raw if s.strip()]
+    if "max_index_bytes" in data:
+        raw = data["max_index_bytes"]
+        if not isinstance(raw, int) or raw < 0:
+            raise ValueError("max_index_bytes must be a non-negative integer")
+        cfg.max_index_bytes = raw
     return cfg
 
 
@@ -91,6 +101,10 @@ def bootstrap(path: str | Path | None = None) -> Path:
         '# watch_dirs = ["~/Pictures/Screenshots"]\n'
         "# debounce_seconds = 2.0\n"
         "# recursive = true\n"
+        "\n"
+        "# Files larger than this many bytes are skipped during indexing.\n"
+        "# 0 disables the limit. Default: 52428800 (50 MB).\n"
+        "# max_index_bytes = 52428800\n"
         "\n"
         "# OCR languages (ISO 639-2 codes). Each entry must have a matching\n"
         "# Tesseract language pack installed. Multiple = Tesseract tries all\n"
