@@ -28,6 +28,7 @@ class IndexResult:
     indexed: int = 0
     skipped_unchanged: int = 0
     skipped_unsupported: int = 0
+    skipped_too_large: int = 0
     errored: int = 0
     last_path: str | None = None
 
@@ -37,6 +38,7 @@ class IndexResult:
             "indexed": self.indexed,
             "skipped_unchanged": self.skipped_unchanged,
             "skipped_unsupported": self.skipped_unsupported,
+            "skipped_too_large": self.skipped_too_large,
             "errored": self.errored,
             "last_path": self.last_path,
         }
@@ -138,6 +140,7 @@ def index_directory(
     skip_ocr: bool = False,
     include_pdfs: bool = True,
     ocr_lang: str = "eng",
+    max_bytes: int = 0,
 ) -> IndexResult:
     """Walk `root`, OCR new/changed images + PDF pages, upsert rows into `conn`.
 
@@ -151,6 +154,9 @@ def index_directory(
             the `[pdf]` extra (pypdfium2). Silently no-op if it isn't installed.
         ocr_lang: Tesseract `eng+spa+deu`-style language string. The
             corresponding language packs must be installed on disk.
+        max_bytes: skip files larger than this. 0 disables the limit. Big
+            PNGs / multi-MB screenshots are usually noise; spending CLIP +
+            OCR time on them is wasteful.
 
     Returns an `IndexResult` summary.
     """
@@ -172,6 +178,10 @@ def index_directory(
         path_str = str(path)
         if _is_unchanged(conn, path_str, stat.st_mtime, stat.st_size):
             result.skipped_unchanged += 1
+            continue
+
+        if max_bytes and stat.st_size > max_bytes:
+            result.skipped_too_large += 1
             continue
 
         text = "" if skip_ocr else ocr.extract_text(path, lang=ocr_lang)

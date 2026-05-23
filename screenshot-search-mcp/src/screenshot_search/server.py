@@ -117,16 +117,24 @@ def index_directory(
     if not target.is_dir():
         return {"error": f"Not a directory: {target}"}
 
+    cfg = config.load()
     if ocr_languages:
         ocr_lang = "+".join(ocr_languages)
     else:
-        ocr_lang = config.load().tesseract_lang()
+        ocr_lang = cfg.tesseract_lang()
 
     conn = _get_conn()
-    result = index.index_directory(conn, target, recursive=recursive, ocr_lang=ocr_lang)
+    result = index.index_directory(
+        conn,
+        target,
+        recursive=recursive,
+        ocr_lang=ocr_lang,
+        max_bytes=cfg.max_index_bytes,
+    )
     payload = result.as_dict()
     payload["root"] = str(target)
     payload["ocr_lang"] = ocr_lang
+    payload["max_bytes"] = cfg.max_index_bytes
     _last_result = payload
     return payload
 
@@ -333,16 +341,24 @@ def reindex_directory(
     conn = _get_conn()
     deleted = store.delete_by_path_prefix(conn, str(target))
 
+    cfg = config.load()
     if ocr_languages:
         ocr_lang = "+".join(ocr_languages)
     else:
-        ocr_lang = config.load().tesseract_lang()
+        ocr_lang = cfg.tesseract_lang()
 
-    result = index.index_directory(conn, target, recursive=recursive, ocr_lang=ocr_lang)
+    result = index.index_directory(
+        conn,
+        target,
+        recursive=recursive,
+        ocr_lang=ocr_lang,
+        max_bytes=cfg.max_index_bytes,
+    )
     payload = result.as_dict()
     payload["root"] = str(target)
     payload["deleted_count"] = int(deleted)
     payload["ocr_lang"] = ocr_lang
+    payload["max_bytes"] = cfg.max_index_bytes
     global _last_result
     _last_result = payload
     return payload
