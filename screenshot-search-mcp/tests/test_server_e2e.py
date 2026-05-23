@@ -78,6 +78,7 @@ async def test_all_tools_are_listed(server):
         "find_similar",
         "search_by_color",
         "tag_image",
+        "untag_image",
         "search_by_tag",
         "list_tags",
         "delete_indexed_directory",

@@ -469,6 +469,25 @@ def tag_image(image_path: str, tags: list[str], mode: str = "add") -> dict:
 
 
 @mcp.tool()
+def untag_image(image_path: str, tags: list[str] | None = None) -> dict:
+    """Remove tags from an indexed image.
+
+    `tags=None` clears every tag on the image (handy for resetting). A list
+    of tag strings removes only those specific tags (case-insensitive,
+    same normalization as `tag_image`).
+
+    Returns the resulting tag set after removal.
+    """
+    target = Path(image_path).expanduser().resolve()
+    conn = _get_conn()
+    row = store.get_by_path(conn, str(target))
+    if row is None:
+        return {"error": f"Not indexed: {target}", "tags": []}
+    remaining = store.remove_tags(conn, int(row["id"]), tags)
+    return {"path": str(target), "tags": remaining}
+
+
+@mcp.tool()
 def search_by_tag(tag: str, since: str | None = None, max_results: int = 50) -> dict:
     """Return indexed images carrying `tag` (exact match, case-insensitive).
 
