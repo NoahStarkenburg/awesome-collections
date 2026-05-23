@@ -69,6 +69,7 @@ class Config:
                 "calendar": SourceConfig(enabled=False, options={"ics_paths": []}),
                 "slack": SourceConfig(enabled=False, options={"export_dirs": []}),
                 "mbox": SourceConfig(enabled=False, options={"paths": []}),
+                "discord": SourceConfig(enabled=False, options={"package_dirs": []}),
             }
         )
 
@@ -111,6 +112,8 @@ def load(path: str | Path | None = None) -> Config:
             opts["export_dirs"] = [str(_expand(p)) for p in opts["export_dirs"]]
         if "paths" in opts and isinstance(opts["paths"], list):
             opts["paths"] = [str(_expand(p)) for p in opts["paths"]]
+        if "package_dirs" in opts and isinstance(opts["package_dirs"], list):
+            opts["package_dirs"] = [str(_expand(p)) for p in opts["package_dirs"]]
         if "profile_dir" in opts:
             opts["profile_dir"] = str(_expand(opts["profile_dir"]))
         cfg.sources[name] = SourceConfig(enabled=enabled, options=opts)
@@ -164,6 +167,12 @@ export_dirs = []
 enabled = false
 # One or more .mbox files (Gmail Takeout, Apple Mail export, mutt archives).
 paths = []
+
+[sources.discord]
+enabled = false
+# One or more extracted Discord Data Package directories.
+# Each entry should contain a messages/ subdir with c<channel-id>/ entries.
+package_dirs = []
 """
 
 
