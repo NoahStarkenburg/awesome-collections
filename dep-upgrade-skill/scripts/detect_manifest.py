@@ -306,6 +306,15 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Detect package manifests + dependency versions.")
     p.add_argument("path", nargs="?", default=".", help="repo root (default: cwd)")
     p.add_argument("--package", help="filter output to one dependency by name")
+    p.add_argument(
+        "--check-only",
+        action="store_true",
+        help=(
+            "Skip the dependency listing — just print one ecosystem name per line "
+            "(sorted, deduplicated). Useful as a precheck before invoking "
+            "fetch_release_notes. Exit code: 0 if any ecosystem found, 1 if none."
+        ),
+    )
     args = p.parse_args(argv)
 
     root = Path(args.path).resolve()
@@ -314,6 +323,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     manifests = detect(root)
+
+    if args.check_only:
+        ecosystems = sorted({m["ecosystem"] for m in manifests})
+        for eco in ecosystems:
+            print(eco)
+        return 0 if ecosystems else 1
+
     if args.package:
         for m in manifests:
             m["dependencies"] = {k: v for k, v in m["dependencies"].items() if k == args.package}

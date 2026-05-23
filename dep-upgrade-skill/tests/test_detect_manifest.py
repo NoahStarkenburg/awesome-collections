@@ -188,6 +188,49 @@ def test_detect_returns_empty_on_unrelated_dir(tmp_path: Path):
     assert dm.detect(tmp_path) == []
 
 
+# -- --check-only CLI flag -----------------------------------------------------
+
+
+def test_check_only_lists_ecosystems(tmp_path: Path, capsys):
+    """`--check-only` prints one ecosystem name per line, sorted, deduped,
+    and exits 0."""
+    (tmp_path / "package.json").write_text(
+        json.dumps({"dependencies": {"react": "^18.0.0"}}), encoding="utf-8"
+    )
+    (tmp_path / "composer.json").write_text(
+        json.dumps({"require": {"monolog/monolog": "^3.0"}}), encoding="utf-8"
+    )
+    (tmp_path / "package-lock.json").write_text(
+        json.dumps({"packages": {"node_modules/react": {"version": "18.2.0"}}}),
+        encoding="utf-8",
+    )
+
+    rc = dm.main([str(tmp_path), "--check-only"])
+    assert rc == 0
+    out = capsys.readouterr().out.splitlines()
+    # Alphabetical, deduplicated.
+    assert out == ["composer", "npm", "npm-lock"]
+
+
+def test_check_only_exits_nonzero_when_empty(tmp_path: Path, capsys):
+    (tmp_path / "README.md").write_text("nothing", encoding="utf-8")
+    rc = dm.main([str(tmp_path), "--check-only"])
+    assert rc == 1
+    assert capsys.readouterr().out == ""
+
+
+def test_check_only_does_not_emit_json(tmp_path: Path, capsys):
+    """Make sure the precheck mode doesn't also dump the JSON manifest list
+    — a downstream `gh actions if` would choke on the extra output."""
+    (tmp_path / "package.json").write_text(
+        json.dumps({"dependencies": {"react": "^18.0.0"}}), encoding="utf-8"
+    )
+    dm.main([str(tmp_path), "--check-only"])
+    out = capsys.readouterr().out
+    assert "{" not in out  # no JSON object opener
+    assert out.strip() == "npm"
+
+
 # -- pyproject -----------------------------------------------------------------
 
 
