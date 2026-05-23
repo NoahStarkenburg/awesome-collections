@@ -310,6 +310,55 @@ def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) 
 
 
 @mcp.tool()
+def tag_image(image_path: str, tags: list[str], mode: str = "add") -> dict:
+    """Attach user-supplied tags to an indexed image.
+
+    Tags are normalized (stripped, lowercased) so callers don't have to
+    worry about case sensitivity. `mode="add"` keeps any existing tags;
+    `mode="replace"` clears them first.
+
+    The image must already be in the index — call `index_directory` over
+    its parent dir first if not. Returns the resulting tag set.
+    """
+    target = Path(image_path).expanduser().resolve()
+    conn = _get_conn()
+    row = store.get_by_path(conn, str(target))
+    if row is None:
+        return {"error": f"Not indexed: {target}", "tags": []}
+    if mode not in ("add", "replace"):
+        return {"error": f"Unknown mode: {mode!r} (use 'add' or 'replace')", "tags": []}
+    resulting = store.set_tags(conn, int(row["id"]), tags, mode=mode)
+    return {"path": str(target), "tags": resulting, "mode": mode}
+
+
+@mcp.tool()
+def search_by_tag(tag: str, since: str | None = None, max_results: int = 50) -> dict:
+    """Return indexed images carrying `tag` (exact match, case-insensitive).
+
+    Useful when CLIP / OCR don't catch what you want and you'd rather
+    explicitly mark images. Pair with `tag_image` to build the tag set.
+    """
+    since_ts: float | None = None
+    if since:
+        since_ts = _parse_since(since)
+    conn = _get_conn()
+    rows = store.find_by_tag(conn, tag, since=since_ts, max_results=max_results)
+    return {
+        "tag": tag.strip().lower(),
+        "count": len(rows),
+        "results": [
+            {
+                "path": r["path"],
+                "mtime": float(r["mtime"]),
+                "size": int(r["size"]),
+                "tags": store.get_tags(conn, int(r["id"])),
+            }
+            for r in rows
+        ],
+    }
+
+
+@mcp.tool()
 def extract_text(image_path: str, lang: str = "eng") -> dict:
     """Run OCR on a single image without touching the index.
 

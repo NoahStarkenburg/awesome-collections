@@ -77,6 +77,8 @@ async def test_all_tools_are_listed(server):
         "search_visual",
         "find_similar",
         "search_by_color",
+        "tag_image",
+        "search_by_tag",
         "extract_text",
         "get_metadata",
     }

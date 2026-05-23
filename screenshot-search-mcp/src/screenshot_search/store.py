@@ -2,7 +2,7 @@
 
 Provides schema management plus a minimal API:
     upsert_image, get_by_path, list_images, search_text, nearest_neighbors,
-    set_embedding, get_embedding.
+    set_embedding, get_embedding, set_tags, get_tags, find_by_tag.
 """
 
 from __future__ import annotations
@@ -54,6 +54,15 @@ CREATE TRIGGER IF NOT EXISTS images_au AFTER UPDATE ON images BEGIN
     INSERT INTO images_fts(images_fts, rowid, ocr_text) VALUES('delete', old.id, old.ocr_text);
     INSERT INTO images_fts(rowid, ocr_text) VALUES (new.id, new.ocr_text);
 END;
+
+CREATE TABLE IF NOT EXISTS image_tags (
+    image_id  INTEGER NOT NULL,
+    tag       TEXT NOT NULL,
+    PRIMARY KEY (image_id, tag),
+    FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag);
 """
 
 
@@ -120,6 +129,59 @@ def upsert_image(
     row = cur.fetchone()
     conn.commit()
     return int(row["id"])
+
+
+def set_tags(
+    conn: sqlite3.Connection,
+    image_id: int,
+    tags: Iterable[str],
+    *,
+    mode: str = "add",
+) -> list[str]:
+    """Attach `tags` to an image.
+
+    `mode="add"` (default): append, preserving any existing tags.
+    `mode="replace"`: drop all existing tags first.
+
+    Tags are normalized (stripped, lowercased). Returns the resulting tag set
+    for the image, sorted.
+    """
+    normalized = sorted({t.strip().lower() for t in tags if t and t.strip()})
+    if mode == "replace":
+        conn.execute("DELETE FROM image_tags WHERE image_id = ?", (int(image_id),))
+    for tag in normalized:
+        conn.execute(
+            "INSERT OR IGNORE INTO image_tags (image_id, tag) VALUES (?, ?)",
+            (int(image_id), tag),
+        )
+    conn.commit()
+    return get_tags(conn, image_id)
+
+
+def get_tags(conn: sqlite3.Connection, image_id: int) -> list[str]:
+    rows = conn.execute(
+        "SELECT tag FROM image_tags WHERE image_id = ? ORDER BY tag",
+        (int(image_id),),
+    ).fetchall()
+    return [row["tag"] for row in rows]
+
+
+def find_by_tag(
+    conn: sqlite3.Connection,
+    tag: str,
+    *,
+    since: float | None = None,
+    max_results: int = 50,
+) -> list[sqlite3.Row]:
+    """Return images carrying `tag`. Tag match is exact, case-insensitive."""
+    sql = "SELECT i.* FROM images i " "JOIN image_tags t ON t.image_id = i.id " "WHERE t.tag = ? "
+    params: list = [tag.strip().lower()]
+    if since is not None:
+        sql += "AND i.mtime >= ? "
+        params.append(since)
+    sql += "ORDER BY i.mtime DESC LIMIT ?"
+    params.append(int(max_results))
+    return conn.execute(sql, params).fetchall()
 
 
 def search_by_color(
