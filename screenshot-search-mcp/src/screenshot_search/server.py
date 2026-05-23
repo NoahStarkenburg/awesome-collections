@@ -310,6 +310,56 @@ def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) 
 
 
 @mcp.tool()
+def compare_images(image_path_a: str, image_path_b: str) -> dict:
+    """Compute CLIP cosine similarity between two specific images.
+
+    Neither image needs to be in the index — useful for ad-hoc "are these
+    two screenshots the same screen / very similar?" questions where you
+    don't want to bring an entire directory into the indexer.
+
+    Returns:
+        - `similarity`: cosine sim in [-1, 1]. Both embeddings are already
+          L2-normalized so this is just the dot product. 1.0 = identical,
+          0.0 = unrelated, -1.0 = opposite direction (rare with CLIP).
+        - `distance`: `1 - similarity`, for callers that prefer a 0=match
+          distance metric.
+
+    Returns `{error: ...}` (no `similarity`) if CLIP can't be loaded or
+    either image is missing/unreadable.
+    """
+    import struct as _struct
+
+    a = Path(image_path_a).expanduser().resolve()
+    b = Path(image_path_b).expanduser().resolve()
+    if not a.is_file():
+        return {"error": f"Not a file: {a}"}
+    if not b.is_file():
+        return {"error": f"Not a file: {b}"}
+
+    try:
+        blob_a = clip.embed_image(a)
+        blob_b = clip.embed_image(b)
+    except (ImportError, FileNotFoundError, OSError) as exc:
+        return {"error": str(exc)}
+
+    dim = len(blob_a) // 4
+    if len(blob_b) != dim * 4:
+        return {"error": "Embedding dimensionality mismatch — re-check CLIP install."}
+    va = _struct.unpack(f"<{dim}f", blob_a)
+    vb = _struct.unpack(f"<{dim}f", blob_b)
+    # Both embeddings are L2-normalized by clip.embed_image, so cosine
+    # similarity == dot product. No need to renormalize.
+    similarity = float(sum(x * y for x, y in zip(va, vb, strict=True)))
+    return {
+        "image_a": str(a),
+        "image_b": str(b),
+        "model": clip.model_tag(),
+        "similarity": similarity,
+        "distance": 1.0 - similarity,
+    }
+
+
+@mcp.tool()
 def delete_indexed_directory(path: str) -> dict:
     """Drop every indexed image (and its embeddings + tags) under `path`.
 
