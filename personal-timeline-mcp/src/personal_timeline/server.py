@@ -443,6 +443,118 @@ def summarize_week(week_start: str | None = None) -> dict:
 
 
 @mcp.tool()
+def export_events(
+    output_path: str,
+    since: str | None = None,
+    until: str | None = None,
+    sources: list[str] | None = None,
+) -> dict:
+    """Stream events to a JSONL file for archival or porting to another system.
+
+    One JSON object per line: `{id, source, source_id, ts, end_ts, title,
+    body, payload}`. The payload is decoded back to a dict so consumers
+    don't have to re-parse `payload_json`.
+
+    Args:
+        output_path: destination file path. Parent directories are created.
+            An existing file is overwritten.
+        since: optional lower bound (inclusive). ISO-8601 or epoch seconds.
+        until: optional upper bound (inclusive). Same shape as `since`.
+        sources: optional source filter.
+
+    Returns: {output_path, count, since_ts, until_ts, sources}.
+    """
+    import json as _json
+
+    out = Path(output_path).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    start_ts = _parse_ts(since) if since else 0
+    end_ts = _parse_ts(until) if until else 2_147_483_647  # year 2038 sentinel
+    if end_ts < start_ts:
+        return {
+            "error": f"until ({end_ts}) is before since ({start_ts})",
+            "count": 0,
+        }
+
+    rows = store.events_in_range(
+        _get_conn(),
+        start_ts=start_ts,
+        end_ts=end_ts,
+        sources=sources,
+        limit=10_000_000,
+    )
+    count = 0
+    with out.open("w", encoding="utf-8") as fh:
+        for row in rows:
+            try:
+                payload = _json.loads(row["payload_json"] or "{}")
+            except (TypeError, ValueError):
+                payload = {}
+            fh.write(
+                _json.dumps(
+                    {
+                        "id": int(row["id"]),
+                        "source": row["source"],
+                        "source_id": row["source_id"],
+                        "ts": int(row["ts"]),
+                        "end_ts": None if row["end_ts"] is None else int(row["end_ts"]),
+                        "title": row["title"],
+                        "body": row["body"],
+                        "payload": payload,
+                    }
+                )
+            )
+            fh.write("\n")
+            count += 1
+    return {
+        "output_path": str(out),
+        "count": count,
+        "since_ts": start_ts,
+        "until_ts": end_ts,
+        "sources": sources,
+    }
+
+
+@mcp.tool()
+def delete_events_in_range(
+    start: str,
+    end: str,
+    sources: list[str] | None = None,
+) -> dict:
+    """Remove events whose timestamp falls in [start, end]. Privacy escape hatch.
+
+    Use to scrub a specific window (e.g. "delete the hour I accidentally
+    browsed something I don't want indexed"). Inclusive on both ends so a
+    single-second cleanup is expressible.
+
+    Args:
+        start: ISO-8601 (`2026-05-14T09:30:00Z` / `2026-05-14`) or epoch seconds.
+        end:   same format. Must be >= `start`.
+        sources: optional source filter — only drop rows from these sources
+            within the window.
+
+    Returns: {start_ts, end_ts, sources, deleted_count}.
+    """
+    start_ts = _parse_ts(start)
+    end_ts = _parse_ts(end)
+    if end_ts < start_ts:
+        return {
+            "error": f"end ({end_ts}) is before start ({start_ts})",
+            "deleted_count": 0,
+        }
+    deleted = store.delete_events_in_range(
+        _get_conn(), start_ts=start_ts, end_ts=end_ts, sources=sources
+    )
+    return {
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "sources": sources,
+        "deleted_count": int(deleted),
+    }
+
+
+@mcp.tool()
 def correlate(
     event_id: int,
     sources: list[str] | None = None,
@@ -569,7 +681,7 @@ def _row_to_dict(row) -> dict:
 def _ingest_one(conn, source: str, opts: dict) -> dict:
     """Dispatch one source's options to its reader/ingestor."""
     from .sources import calendar as calsrc
-    from .sources import chrome, firefox, safari, vscode
+    from .sources import chrome, firefox, mbox, safari, slack, vscode
     from .sources import filesystem as fssrc
     from .sources import git as gitsrc
 
@@ -593,6 +705,38 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
                 store.upsert_event(conn, event)
                 ingested += 1
         return {"ingested": ingested, "ics_paths": ics_paths}
+
+    if source == "slack":
+        export_dirs = opts.get("export_dirs") or []
+        state = store.get_source_state(conn, source)
+        since = state["last_event_ts"] if state and state.get("last_event_ts") else None
+        ingested = 0
+        high = since
+        for export_dir in export_dirs:
+            for event in slack.read_events(export_dir, since_ts=since):
+                store.upsert_event(conn, event)
+                ingested += 1
+                if high is None or event.ts > high:
+                    high = event.ts
+        if high is not None:
+            store.update_source_state(conn, source, last_event_ts=int(high))
+        return {"ingested": ingested, "export_dirs": export_dirs}
+
+    if source == "mbox":
+        paths = opts.get("paths") or []
+        state = store.get_source_state(conn, source)
+        since = state["last_event_ts"] if state and state.get("last_event_ts") else None
+        ingested = 0
+        high = since
+        for path in paths:
+            for event in mbox.read_events(path, since_ts=since):
+                store.upsert_event(conn, event)
+                ingested += 1
+                if high is None or event.ts > high:
+                    high = event.ts
+        if high is not None:
+            store.update_source_state(conn, source, last_event_ts=int(high))
+        return {"ingested": ingested, "paths": paths}
 
     if source == "vscode":
         flavors = opts.get("flavors") or ["code"]
