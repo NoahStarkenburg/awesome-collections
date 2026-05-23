@@ -276,6 +276,30 @@ def get_by_path(conn: sqlite3.Connection, path: str) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM images WHERE path = ?", (path,)).fetchone()
 
 
+def rename_path(
+    conn: sqlite3.Connection,
+    old_path: str,
+    new_path: str,
+) -> str:
+    """Update an indexed image's `path` to `new_path`.
+
+    Use after a disk-side move/rename so the index doesn't have to re-OCR
+    and re-embed the file. Embeddings and tags ride on the `id` column —
+    they survive the rename automatically.
+
+    Returns:
+        - `"renamed"`  if a row was updated.
+        - `"missing"`  if no row matched `old_path`.
+        - `"conflict"` if `new_path` is already indexed (UNIQUE constraint).
+    """
+    existing = conn.execute("SELECT id FROM images WHERE path = ?", (new_path,)).fetchone()
+    if existing is not None and new_path != old_path:
+        return "conflict"
+    cur = conn.execute("UPDATE images SET path = ? WHERE path = ?", (new_path, old_path))
+    conn.commit()
+    return "renamed" if cur.rowcount > 0 else "missing"
+
+
 def delete_by_path_prefix(conn: sqlite3.Connection, prefix: str) -> int:
     """Drop all image rows whose path starts with `prefix`. Returns the
     deleted-row count. Embeddings and tags vanish via ON DELETE CASCADE."""
