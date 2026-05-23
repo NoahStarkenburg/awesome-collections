@@ -27,14 +27,26 @@ visual = [
     "open-clip-torch>=2.24",
     "numpy>=1.26",
 ]
+# PDF page indexing — rasterizes each page so the OCR pipeline picks it up.
+pdf = [
+    "pypdfium2>=4.30",
+]
+# Optional FAISS index for fast nearest-neighbor over large embedding stores.
+# Falls back to in-Python cosine when missing.
+faiss = [
+    "faiss-cpu>=1.8",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "pypdfium2>=4.30",
 ]
 # Convenience: `pip install -e .[all]` for the full feature set.
 all = [
     "open-clip-torch>=2.24",
     "numpy>=1.26",
+    "pypdfium2>=4.30",
+    "faiss-cpu>=1.8",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
 ]

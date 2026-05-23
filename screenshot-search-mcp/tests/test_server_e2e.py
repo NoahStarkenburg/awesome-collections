@@ -41,6 +41,30 @@ def sample_image(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_search_by_color_via_protocol(server, sample_image, tmp_path):
+    """End-to-end: index a known-color image, then search for that color."""
+    async with Client(server) as client:
+        await client.call_tool("index_directory", {"path": str(tmp_path), "recursive": False})
+        # 50,100,200 is a strong blue — search for it.
+        result = await client.call_tool(
+            "search_by_color", {"hex_color": "#3264c8", "tolerance": 30}
+        )
+    payload = json.loads(result.content[0].text)
+    assert payload["count"] >= 1
+    paths = [r["path"] for r in payload["results"]]
+    assert str(sample_image) in paths
+
+
+@pytest.mark.asyncio
+async def test_search_by_color_rejects_bad_hex(server):
+    async with Client(server) as client:
+        result = await client.call_tool("search_by_color", {"hex_color": "not-a-color"})
+    payload = json.loads(result.content[0].text)
+    assert "error" in payload
+    assert payload["count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_all_tools_are_listed(server):
     async with Client(server) as client:
         tools = await client.list_tools()
@@ -52,6 +76,7 @@ async def test_all_tools_are_listed(server):
         "search_text",
         "search_visual",
         "find_similar",
+        "search_by_color",
         "extract_text",
         "get_metadata",
     }

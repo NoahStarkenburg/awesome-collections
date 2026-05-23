@@ -28,11 +28,16 @@ class Config:
     watch_dirs: list[Path] = field(default_factory=list)
     debounce_seconds: float = 2.0
     recursive: bool = True
+    ocr_languages: list[str] = field(default_factory=lambda: ["eng"])
     source: Path | None = None
 
     @classmethod
     def defaults(cls) -> Config:
         return cls()
+
+    def tesseract_lang(self) -> str:
+        """Return the `eng+spa+deu`-style joined string Tesseract expects."""
+        return "+".join(self.ocr_languages) if self.ocr_languages else "eng"
 
 
 def _expand(value) -> Path:
@@ -60,6 +65,11 @@ def load(path: str | Path | None = None) -> Config:
         cfg.debounce_seconds = float(data["debounce_seconds"])
     if "recursive" in data:
         cfg.recursive = bool(data["recursive"])
+    if "ocr_languages" in data:
+        raw = data["ocr_languages"]
+        if not isinstance(raw, list) or not all(isinstance(x, str) for x in raw):
+            raise ValueError("ocr_languages must be a list of strings, e.g. ['eng', 'spa']")
+        cfg.ocr_languages = [s.strip() for s in raw if s.strip()]
     return cfg
 
 
@@ -80,7 +90,12 @@ def bootstrap(path: str | Path | None = None) -> Path:
         '# db_path = "~/.screenshot-search/index.db"\n'
         '# watch_dirs = ["~/Pictures/Screenshots"]\n'
         "# debounce_seconds = 2.0\n"
-        "# recursive = true\n",
+        "# recursive = true\n"
+        "\n"
+        "# OCR languages (ISO 639-2 codes). Each entry must have a matching\n"
+        "# Tesseract language pack installed. Multiple = Tesseract tries all\n"
+        '# of them at once: e.g. ["eng", "spa", "deu"].\n'
+        '# ocr_languages = ["eng"]\n',
         encoding="utf-8",
     )
     return target
