@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS images (
     sha256        TEXT,
     ocr_text      TEXT,
     dominant_rgb  INTEGER,
+    captured_at   REAL,
     indexed_at    REAL NOT NULL
 );
 
@@ -95,6 +96,8 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
     cols = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
     if "dominant_rgb" not in cols:
         conn.execute("ALTER TABLE images ADD COLUMN dominant_rgb INTEGER")
+    if "captured_at" not in cols:
+        conn.execute("ALTER TABLE images ADD COLUMN captured_at REAL")
 
 
 # -- image rows ----------------------------------------------------------------
@@ -109,23 +112,25 @@ def upsert_image(
     sha256: str | None = None,
     ocr_text: str | None = None,
     dominant_rgb: int | None = None,
+    captured_at: float | None = None,
 ) -> int:
     """Insert or update an image row. Returns the row id."""
     now = time.time()
     cur = conn.execute(
         """
-        INSERT INTO images (path, mtime, size, sha256, ocr_text, dominant_rgb, indexed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO images (path, mtime, size, sha256, ocr_text, dominant_rgb, captured_at, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET
             mtime = excluded.mtime,
             size = excluded.size,
             sha256 = COALESCE(excluded.sha256, images.sha256),
             ocr_text = COALESCE(excluded.ocr_text, images.ocr_text),
             dominant_rgb = COALESCE(excluded.dominant_rgb, images.dominant_rgb),
+            captured_at = COALESCE(excluded.captured_at, images.captured_at),
             indexed_at = excluded.indexed_at
         RETURNING id
         """,
-        (path, mtime, size, sha256, ocr_text, dominant_rgb, now),
+        (path, mtime, size, sha256, ocr_text, dominant_rgb, captured_at, now),
     )
     row = cur.fetchone()
     conn.commit()
