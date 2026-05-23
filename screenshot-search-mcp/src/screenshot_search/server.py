@@ -310,6 +310,45 @@ def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) 
 
 
 @mcp.tool()
+def reindex_directory(
+    path: str,
+    recursive: bool = True,
+    ocr_languages: list[str] | None = None,
+) -> dict:
+    """Drop any cached rows under `path` and re-run the indexer.
+
+    Useful when something downstream of the cached row has changed:
+    a Tesseract upgrade (OCR text would differ), a new
+    `ocr_languages` config, a CLIP model swap, etc. Equivalent to
+    `delete_indexed_directory(path)` followed by `index_directory(path)`
+    in one call.
+
+    Returns the union of both operations' results: `deleted_count` plus
+    the standard `index_directory` summary.
+    """
+    target = Path(path).expanduser().resolve()
+    if not target.is_dir():
+        return {"error": f"Not a directory: {target}"}
+
+    conn = _get_conn()
+    deleted = store.delete_by_path_prefix(conn, str(target))
+
+    if ocr_languages:
+        ocr_lang = "+".join(ocr_languages)
+    else:
+        ocr_lang = config.load().tesseract_lang()
+
+    result = index.index_directory(conn, target, recursive=recursive, ocr_lang=ocr_lang)
+    payload = result.as_dict()
+    payload["root"] = str(target)
+    payload["deleted_count"] = int(deleted)
+    payload["ocr_lang"] = ocr_lang
+    global _last_result
+    _last_result = payload
+    return payload
+
+
+@mcp.tool()
 def compare_images(image_path_a: str, image_path_b: str) -> dict:
     """Compute CLIP cosine similarity between two specific images.
 
