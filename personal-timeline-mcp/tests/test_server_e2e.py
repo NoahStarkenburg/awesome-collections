@@ -41,6 +41,7 @@ async def test_all_tools_are_listed(server):
         "find_session",
         "summarize_workday",
         "summarize_week",
+        "delete_events_in_range",
         "correlate",
     }
 
@@ -207,4 +208,77 @@ async def test_summarize_week_aggregates_across_days(server, tmp_path):
     assert counts_by_day["2026-05-11"] == 2
     assert counts_by_day["2026-05-13"] == 1
     assert counts_by_day["2026-05-17"] == 0
+    del tmp_path  # silence unused-arg lint
+
+
+@pytest.mark.asyncio
+async def test_delete_events_in_range_via_protocol(server, tmp_path):
+    """Seed a few events, delete the middle hour, confirm only those rows go."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        for i, ts in enumerate([1000, 2000, 3000, 4000, 5000]):
+            upsert_event(
+                seed_conn,
+                Event(
+                    source="git" if i % 2 == 0 else "chrome",
+                    source_id=f"id:{i}",
+                    ts=ts,
+                    title=f"event {i}",
+                    body="",
+                    payload={},
+                ),
+            )
+    finally:
+        seed_conn.close()
+
+    async with Client(server) as client:
+        result = await client.call_tool("delete_events_in_range", {"start": "2000", "end": "4000"})
+    payload = json.loads(result.content[0].text)
+    # Three rows fall in [2000, 4000] inclusive.
+    assert payload["deleted_count"] == 3
+    assert payload["start_ts"] == 2000
+    assert payload["end_ts"] == 4000
+    del tmp_path  # silence unused-arg lint
+
+
+@pytest.mark.asyncio
+async def test_delete_events_in_range_rejects_inverted(server):
+    async with Client(server) as client:
+        result = await client.call_tool("delete_events_in_range", {"start": "5000", "end": "1000"})
+    payload = json.loads(result.content[0].text)
+    assert "error" in payload
+    assert payload["deleted_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_events_in_range_source_filter(server, tmp_path):
+    """Source filter scopes the wipe — git events vanish, chrome stays."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        upsert_event(
+            seed_conn,
+            Event(source="git", source_id="g1", ts=1000, title="g", body="", payload={}),
+        )
+        upsert_event(
+            seed_conn,
+            Event(source="chrome", source_id="c1", ts=1000, title="c", body="", payload={}),
+        )
+    finally:
+        seed_conn.close()
+
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "delete_events_in_range",
+            {"start": "0", "end": "2000", "sources": ["git"]},
+        )
+    payload = json.loads(result.content[0].text)
+    assert payload["deleted_count"] == 1  # only git row dropped
     del tmp_path  # silence unused-arg lint

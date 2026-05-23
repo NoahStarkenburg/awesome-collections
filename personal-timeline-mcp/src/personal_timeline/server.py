@@ -443,6 +443,44 @@ def summarize_week(week_start: str | None = None) -> dict:
 
 
 @mcp.tool()
+def delete_events_in_range(
+    start: str,
+    end: str,
+    sources: list[str] | None = None,
+) -> dict:
+    """Remove events whose timestamp falls in [start, end]. Privacy escape hatch.
+
+    Use to scrub a specific window (e.g. "delete the hour I accidentally
+    browsed something I don't want indexed"). Inclusive on both ends so a
+    single-second cleanup is expressible.
+
+    Args:
+        start: ISO-8601 (`2026-05-14T09:30:00Z` / `2026-05-14`) or epoch seconds.
+        end:   same format. Must be >= `start`.
+        sources: optional source filter — only drop rows from these sources
+            within the window.
+
+    Returns: {start_ts, end_ts, sources, deleted_count}.
+    """
+    start_ts = _parse_ts(start)
+    end_ts = _parse_ts(end)
+    if end_ts < start_ts:
+        return {
+            "error": f"end ({end_ts}) is before start ({start_ts})",
+            "deleted_count": 0,
+        }
+    deleted = store.delete_events_in_range(
+        _get_conn(), start_ts=start_ts, end_ts=end_ts, sources=sources
+    )
+    return {
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "sources": sources,
+        "deleted_count": int(deleted),
+    }
+
+
+@mcp.tool()
 def correlate(
     event_id: int,
     sources: list[str] | None = None,
