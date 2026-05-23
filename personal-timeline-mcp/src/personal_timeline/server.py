@@ -517,6 +517,49 @@ def export_events(
 
 
 @mcp.tool()
+def find_session_in_window(
+    query: str,
+    start: str,
+    end: str,
+    max_results: int = 20,
+) -> dict:
+    """FTS5 search scoped to a time window.
+
+    Same query syntax as `find_session`, but only matches events within
+    [start, end] inclusive. Use when you want "what was I doing about X
+    around the time of Y" — narrower than scanning the whole index.
+
+    Args:
+        query: FTS5 query string.
+        start: ISO-8601 or epoch seconds (inclusive lower bound).
+        end:   ISO-8601 or epoch seconds (inclusive upper bound).
+        max_results: cap.
+    """
+    start_ts = _parse_ts(start)
+    end_ts = _parse_ts(end)
+    if end_ts < start_ts:
+        return {
+            "error": f"end ({end_ts}) is before start ({start_ts})",
+            "results": [],
+            "count": 0,
+        }
+    rows = store.search_events(
+        _get_conn(),
+        query,
+        max_results=max_results,
+        start_ts=start_ts,
+        end_ts=end_ts,
+    )
+    return {
+        "query": query,
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "count": len(rows),
+        "results": [{**_row_to_dict(r), "score": float(r["score"])} for r in rows],
+    }
+
+
+@mcp.tool()
 def event_stats() -> dict:
     """Index health snapshot: counts per source, time bounds, DB size.
 

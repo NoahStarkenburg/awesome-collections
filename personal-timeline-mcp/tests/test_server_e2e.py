@@ -42,6 +42,7 @@ async def test_all_tools_are_listed(server):
         "summarize_workday",
         "summarize_week",
         "event_stats",
+        "find_session_in_window",
         "delete_events_in_range",
         "export_events",
         "correlate",
@@ -211,6 +212,64 @@ async def test_summarize_week_aggregates_across_days(server, tmp_path):
     assert counts_by_day["2026-05-13"] == 1
     assert counts_by_day["2026-05-17"] == 0
     del tmp_path  # silence unused-arg lint
+
+
+@pytest.mark.asyncio
+async def test_find_session_in_window_filters_by_time(server, tmp_path):
+    """FTS5 matches outside the window must be filtered out."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="a",
+                ts=1000,
+                title="auth refactor",
+                body="redo the login flow",
+                payload={},
+            ),
+        )
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="b",
+                ts=5000,
+                title="auth fix",
+                body="another auth-related change",
+                payload={},
+            ),
+        )
+    finally:
+        seed_conn.close()
+
+    async with Client(server) as client:
+        # Window only covers ts=5000 — earlier match is excluded.
+        result = await client.call_tool(
+            "find_session_in_window",
+            {"query": "auth", "start": "4000", "end": "6000"},
+        )
+    payload = json.loads(result.content[0].text)
+    assert payload["count"] == 1
+    assert payload["results"][0]["title"] == "auth fix"
+    del tmp_path
+
+
+@pytest.mark.asyncio
+async def test_find_session_in_window_rejects_inverted(server):
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "find_session_in_window",
+            {"query": "x", "start": "5000", "end": "1000"},
+        )
+    payload = json.loads(result.content[0].text)
+    assert "error" in payload
+    assert payload["count"] == 0
 
 
 @pytest.mark.asyncio
