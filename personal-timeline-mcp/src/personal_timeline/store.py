@@ -1,7 +1,7 @@
 """SQLite storage layer for personal-timeline-mcp.
 
 Schema + minimal API:
-    upsert_event, events_in_range, search_events,
+    upsert_event, events_in_range, search_events, delete_events_in_range,
     get_source_state, update_source_state, count_events.
 """
 
@@ -178,6 +178,30 @@ def search_events(
             (query, int(max_results)),
         )
     )
+
+
+def delete_events_in_range(
+    conn: sqlite3.Connection,
+    *,
+    start_ts: int,
+    end_ts: int,
+    sources: list[str] | None = None,
+) -> int:
+    """Drop events with `start_ts <= ts <= end_ts`, optionally restricted to
+    specific sources. Returns the number of rows removed.
+
+    The FTS5 triggers on `events` keep `events_fts` in sync as part of the
+    DELETE, so callers don't need to rebuild the FTS index.
+    """
+    sql = "DELETE FROM events WHERE ts >= ? AND ts <= ?"
+    params: list = [int(start_ts), int(end_ts)]
+    if sources:
+        placeholders = ",".join("?" * len(sources))
+        sql += f" AND source IN ({placeholders})"
+        params.extend(sources)
+    cur = conn.execute(sql, params)
+    conn.commit()
+    return int(cur.rowcount)
 
 
 def count_events(conn: sqlite3.Connection, source: str | None = None) -> int:
