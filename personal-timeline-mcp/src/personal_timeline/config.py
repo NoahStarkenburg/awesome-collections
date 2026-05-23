@@ -67,6 +67,7 @@ class Config:
                     enabled=False, options={"dirs": [], "ignore": list(DEFAULT_IGNORE)}
                 ),
                 "calendar": SourceConfig(enabled=False, options={"ics_paths": []}),
+                "slack": SourceConfig(enabled=False, options={"export_dirs": []}),
             }
         )
 
@@ -105,6 +106,8 @@ def load(path: str | Path | None = None) -> Config:
             opts["dirs"] = [str(_expand(p)) for p in opts["dirs"]]
         if "ics_paths" in opts and isinstance(opts["ics_paths"], list):
             opts["ics_paths"] = [str(_expand(p)) for p in opts["ics_paths"]]
+        if "export_dirs" in opts and isinstance(opts["export_dirs"], list):
+            opts["export_dirs"] = [str(_expand(p)) for p in opts["export_dirs"]]
         if "profile_dir" in opts:
             opts["profile_dir"] = str(_expand(opts["profile_dir"]))
         cfg.sources[name] = SourceConfig(enabled=enabled, options=opts)
@@ -147,6 +150,12 @@ ignore = [".git", "node_modules", "__pycache__", ".venv"]
 [sources.calendar]
 enabled = false
 ics_paths = []
+
+[sources.slack]
+enabled = false
+# Point at one or more extracted Slack workspace export directories.
+# Each entry should contain users.json + <channel-name>/<YYYY-MM-DD>.json files.
+export_dirs = []
 """
 
 
