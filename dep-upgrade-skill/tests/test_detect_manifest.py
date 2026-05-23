@@ -317,6 +317,45 @@ def test_read_maven_pom_handles_broken_xml(tmp_path: Path):
     assert dm.detect(tmp_path) == []
 
 
+# -- requirements.txt ----------------------------------------------------------
+
+
+def test_read_requirements_txt_basic(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_text(
+        "# top-level comment\n"
+        "requests>=2.31\n"
+        "click==8.1.7\n"
+        "rich  # inline comment, no pin\n"
+        "django>=4.0,<5  ; python_version >= '3.10'\n"
+        "\n"
+        "-r dev-requirements.txt\n"
+        "-e .\n"
+        "--index-url https://pypi.org/simple\n",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    assert len(out) == 1
+    m = out[0]
+    assert m["ecosystem"] == "pypi-requirements"
+    assert m["dependencies"] == {
+        "requests": ">=2.31",
+        "click": "==8.1.7",
+        "rich": "",
+        "django": ">=4.0,<5",
+    }
+
+
+def test_read_requirements_txt_coexists_with_pyproject(tmp_path: Path):
+    """A repo with both pyproject and requirements.txt surfaces both."""
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "x"\ndependencies = ["requests>=2.31"]\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "requirements.txt").write_text("flask==3.0.0\n", encoding="utf-8")
+    ecosystems = sorted(m["ecosystem"] for m in dm.detect(tmp_path))
+    assert ecosystems == ["pypi", "pypi-requirements"]
+
+
 # -- pyproject -----------------------------------------------------------------
 
 

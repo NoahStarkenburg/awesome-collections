@@ -220,6 +220,39 @@ def _read_maven_pom(path: Path) -> dict | None:
     return {"path": path.name, "ecosystem": "maven", "dependencies": deps}
 
 
+def _read_requirements_txt(path: Path) -> dict | None:
+    """Parse a pip `requirements.txt` file.
+
+    Pulls PEP 508 specs. Lines starting with `-r`, `-e`, `--index-url`,
+    etc. are skipped — those reference other files or configure pip,
+    they're not packages. Comments (`#`-prefixed) are stripped. Empty
+    constraints (e.g. `requests` with no version pin) get an empty string
+    so callers can see the package was listed without a pin.
+
+    Ecosystem is `pypi-requirements` to distinguish from pyproject's `pypi`
+    — they're both Python but represent different surfaces. Both can
+    coexist in one repo.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    deps: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        # Skip pip directives. `-r reqs/dev.txt`, `-e .`, `--index-url ...`.
+        if line.startswith("-") or line.startswith("--"):
+            continue
+        # Drop env markers (`; python_version >= "3.10"`) before parsing.
+        line = line.split(";", 1)[0].strip()
+        name, ver = _split_pep508(line)
+        if name:
+            deps[name] = ver
+    return {"path": path.name, "ecosystem": "pypi-requirements", "dependencies": deps}
+
+
 def _read_gemfile(path: Path) -> dict | None:
     """Parse a Ruby `Gemfile`.
 
@@ -329,6 +362,7 @@ READERS = {
     "package.json": _read_npm,
     "package-lock.json": _read_package_lock,
     "pyproject.toml": _read_pyproject,
+    "requirements.txt": _read_requirements_txt,
     "Cargo.toml": _read_cargo,
     "composer.json": _read_composer,
     "go.mod": _read_gomod,
