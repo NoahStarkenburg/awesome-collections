@@ -432,6 +432,21 @@ def delete_indexed_directory(path: str) -> dict:
 
 
 @mcp.tool()
+def list_tags(min_count: int = 1, limit: int = 200) -> dict:
+    """Return every tag in the index with its image count, sorted desc.
+
+    Useful for UI autocomplete and inventorying what you've tagged.
+    Set `min_count > 1` to hide typo-ish one-off tags.
+    """
+    conn = _get_conn()
+    rows = store.list_all_tags(conn, min_count=min_count, limit=limit)
+    return {
+        "count": len(rows),
+        "tags": [{"tag": tag, "image_count": count} for tag, count in rows],
+    }
+
+
+@mcp.tool()
 def tag_image(image_path: str, tags: list[str], mode: str = "add") -> dict:
     """Attach user-supplied tags to an indexed image.
 
