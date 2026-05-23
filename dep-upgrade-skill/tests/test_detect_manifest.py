@@ -203,6 +203,48 @@ def test_read_pyproject_pep621(tmp_path: Path):
     assert out[0]["dependencies"]["click"] == ">=8.0"
 
 
+# -- rubygems / Gemfile --------------------------------------------------------
+
+
+def test_read_gemfile_parses_gem_lines(tmp_path: Path):
+    (tmp_path / "Gemfile").write_text(
+        "source 'https://rubygems.org'\n"
+        "ruby '3.2.0'\n"
+        "\n"
+        "gem 'rails', '~> 7.0'\n"
+        "gem \"pg\", '>= 1.4'\n"
+        "gem 'redis'\n"
+        "# gem 'commented_out', '1.0'\n"
+        "\n"
+        "group :development do\n"
+        "  gem 'rspec', '~> 3.12'\n"
+        "end\n",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    assert len(out) == 1
+    m = out[0]
+    assert m["ecosystem"] == "rubygems"
+    assert m["dependencies"] == {
+        "rails": "~> 7.0",
+        "pg": ">= 1.4",
+        "redis": "",  # no version specified
+        "rspec": "~> 3.12",
+    }
+
+
+def test_read_gemfile_ignores_runtime_directive(tmp_path: Path):
+    """The `ruby '3.2.0'` line shouldn't end up as a package."""
+    (tmp_path / "Gemfile").write_text(
+        "ruby '3.2.0'\ngem 'rails', '~> 7.0'\n",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    deps = out[0]["dependencies"]
+    assert "rails" in deps
+    assert "ruby" not in deps
+
+
 # -- go modules ----------------------------------------------------------------
 
 

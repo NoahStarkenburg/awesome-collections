@@ -174,6 +174,37 @@ def _read_package_lock(path: Path) -> dict | None:
     return {"path": path.name, "ecosystem": "npm-lock", "dependencies": deps}
 
 
+def _read_gemfile(path: Path) -> dict | None:
+    """Parse a Ruby `Gemfile`.
+
+    Pulls `gem 'name'[, 'version']` lines. The `ruby` runtime directive
+    is dropped (it constrains the interpreter, not a package). Comments
+    (`#`-prefixed) are skipped. Version is the first quoted argument
+    after the gem name; if absent, defaults to an empty string so
+    callers can still see which gems are listed.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    deps: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line.startswith("gem"):
+            continue
+        # Match `gem 'name'` or `gem "name"` followed by optional comma+version.
+        m = re.match(
+            r'^gem\s+[\'"]([A-Za-z0-9_./-]+)[\'"]' r'(?:\s*,\s*[\'"]([^\'"]+)[\'"])?',
+            line,
+        )
+        if not m:
+            continue
+        name = m.group(1)
+        version = m.group(2) or ""
+        deps[name] = version
+    return {"path": path.name, "ecosystem": "rubygems", "dependencies": deps}
+
+
 def _read_gomod(path: Path) -> dict | None:
     """Parse a Go `go.mod` file.
 
@@ -255,6 +286,7 @@ READERS = {
     "Cargo.toml": _read_cargo,
     "composer.json": _read_composer,
     "go.mod": _read_gomod,
+    "Gemfile": _read_gemfile,
 }
 
 

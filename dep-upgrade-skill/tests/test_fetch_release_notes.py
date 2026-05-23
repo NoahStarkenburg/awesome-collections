@@ -144,7 +144,7 @@ def test_fetch_release_notes_pypi(offline):
 
 def test_fetch_release_notes_unsupported_ecosystem():
     with pytest.raises(NotImplementedError):
-        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "rubygems")
+        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "maven")
 
 
 # -- crates.io / Cargo ---------------------------------------------------------
@@ -253,6 +253,80 @@ def test_fetch_release_notes_gomod(monkeypatch):
     assert result["repo_url"] == "https://github.com/foo/bar"
     # 1.0.0 is lo-exclusive; 2.0.0-beta.1 is prerelease.
     assert result["versions"] == ["1.1.0", "1.2.0"]
+
+
+# -- rubygems ------------------------------------------------------------------
+
+
+def test_parse_repo_url_rubygems_prefers_source_code_uri():
+    meta = {
+        "gem": {
+            "source_code_uri": "https://github.com/rails/rails",
+            "homepage_uri": "https://rubyonrails.org",
+        }
+    }
+    assert frn.parse_repo_url_rubygems(meta) == "https://github.com/rails/rails"
+
+
+def test_parse_repo_url_rubygems_falls_back_to_homepage():
+    meta = {"gem": {"homepage_uri": "https://github.com/foo/bar"}}
+    assert frn.parse_repo_url_rubygems(meta) == "https://github.com/foo/bar"
+
+
+def test_parse_repo_url_rubygems_returns_none_when_no_github():
+    meta = {"gem": {"homepage_uri": "https://gitlab.com/foo/bar"}}
+    assert frn.parse_repo_url_rubygems(meta) is None
+
+
+def test_list_rubygems_versions_keeps_prereleases():
+    """Stability filtering happens via in_range; the lister just surfaces
+    every `number` from the payload."""
+    meta = {
+        "versions": [
+            {"number": "7.1.0"},
+            {"number": "7.1.0.rc1"},
+            {"number": "7.0.4"},
+        ]
+    }
+    assert frn.list_rubygems_versions(meta) == ["7.1.0", "7.1.0.rc1", "7.0.4"]
+
+
+def test_fetch_release_notes_rubygems(monkeypatch):
+    """End-to-end through the rubygems path with both endpoints mocked."""
+    from urllib.error import URLError
+
+    gem = {
+        "name": "rails",
+        "source_code_uri": "https://github.com/rails/rails",
+        "homepage_uri": "https://rubyonrails.org",
+    }
+    versions = [
+        {"number": "7.1.0"},
+        {"number": "7.1.0.rc1"},
+        {"number": "7.0.5"},
+        {"number": "7.0.4"},
+    ]
+
+    def fake_json(url, timeout=15):
+        if "rubygems.org/api/v1/gems/rails.json" in url:
+            return gem
+        if "rubygems.org/api/v1/versions/rails.json" in url:
+            return versions
+        if "api.github.com" in url and "releases" in url:
+            return []
+        raise AssertionError(f"unexpected JSON GET: {url}")
+
+    def fake_text(url, timeout=15):
+        raise URLError("not found")
+
+    monkeypatch.setattr(frn, "http_get_json", fake_json)
+    monkeypatch.setattr(frn, "http_get_text", fake_text)
+
+    result = frn.fetch_release_notes("rails", "7.0.4", "7.1.0", "rubygems")
+    assert result["ecosystem"] == "rubygems"
+    assert result["repo_url"] == "https://github.com/rails/rails"
+    # 7.0.4 lo-exclusive; 7.1.0.rc1 prerelease.
+    assert result["versions"] == ["7.0.5", "7.1.0"]
 
 
 # -- disk cache -----------------------------------------------------------------
