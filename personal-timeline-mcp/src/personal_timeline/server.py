@@ -569,7 +569,7 @@ def _row_to_dict(row) -> dict:
 def _ingest_one(conn, source: str, opts: dict) -> dict:
     """Dispatch one source's options to its reader/ingestor."""
     from .sources import calendar as calsrc
-    from .sources import chrome, firefox, safari, slack, vscode
+    from .sources import chrome, firefox, mbox, safari, slack, vscode
     from .sources import filesystem as fssrc
     from .sources import git as gitsrc
 
@@ -609,6 +609,22 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
         if high is not None:
             store.update_source_state(conn, source, last_event_ts=int(high))
         return {"ingested": ingested, "export_dirs": export_dirs}
+
+    if source == "mbox":
+        paths = opts.get("paths") or []
+        state = store.get_source_state(conn, source)
+        since = state["last_event_ts"] if state and state.get("last_event_ts") else None
+        ingested = 0
+        high = since
+        for path in paths:
+            for event in mbox.read_events(path, since_ts=since):
+                store.upsert_event(conn, event)
+                ingested += 1
+                if high is None or event.ts > high:
+                    high = event.ts
+        if high is not None:
+            store.update_source_state(conn, source, last_event_ts=int(high))
+        return {"ingested": ingested, "paths": paths}
 
     if source == "vscode":
         flavors = opts.get("flavors") or ["code"]
