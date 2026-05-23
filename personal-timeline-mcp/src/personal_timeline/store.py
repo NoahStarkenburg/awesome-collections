@@ -161,23 +161,33 @@ def search_events(
     query: str,
     *,
     max_results: int = 20,
+    start_ts: int | None = None,
+    end_ts: int | None = None,
 ) -> list[sqlite3.Row]:
-    """FTS5 search over title + body. Returns rows ordered by BM25."""
+    """FTS5 search over title + body. Returns rows ordered by BM25.
+
+    Optional `start_ts` / `end_ts` (unix seconds, inclusive) scope the search
+    to a time window — useful for "find the session about X around the time
+    of Y" workflows.
+    """
     if not query.strip():
         return []
-    return list(
-        conn.execute(
-            """
-        SELECT e.*, bm25(events_fts) AS score
-        FROM events_fts
-        JOIN events e ON e.id = events_fts.rowid
-        WHERE events_fts MATCH ?
-        ORDER BY score
-        LIMIT ?
-        """,
-            (query, int(max_results)),
-        )
+    sql = (
+        "SELECT e.*, bm25(events_fts) AS score "
+        "FROM events_fts "
+        "JOIN events e ON e.id = events_fts.rowid "
+        "WHERE events_fts MATCH ? "
     )
+    params: list = [query]
+    if start_ts is not None:
+        sql += "AND e.ts >= ? "
+        params.append(int(start_ts))
+    if end_ts is not None:
+        sql += "AND e.ts <= ? "
+        params.append(int(end_ts))
+    sql += "ORDER BY score LIMIT ?"
+    params.append(int(max_results))
+    return list(conn.execute(sql, params))
 
 
 def delete_events_in_range(

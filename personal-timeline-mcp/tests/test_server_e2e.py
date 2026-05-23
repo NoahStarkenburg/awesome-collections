@@ -41,6 +41,8 @@ async def test_all_tools_are_listed(server):
         "find_session",
         "summarize_workday",
         "summarize_week",
+        "event_stats",
+        "find_session_in_window",
         "delete_events_in_range",
         "export_events",
         "correlate",
@@ -210,6 +212,115 @@ async def test_summarize_week_aggregates_across_days(server, tmp_path):
     assert counts_by_day["2026-05-13"] == 1
     assert counts_by_day["2026-05-17"] == 0
     del tmp_path  # silence unused-arg lint
+
+
+@pytest.mark.asyncio
+async def test_find_session_in_window_filters_by_time(server, tmp_path):
+    """FTS5 matches outside the window must be filtered out."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="a",
+                ts=1000,
+                title="auth refactor",
+                body="redo the login flow",
+                payload={},
+            ),
+        )
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="b",
+                ts=5000,
+                title="auth fix",
+                body="another auth-related change",
+                payload={},
+            ),
+        )
+    finally:
+        seed_conn.close()
+
+    async with Client(server) as client:
+        # Window only covers ts=5000 — earlier match is excluded.
+        result = await client.call_tool(
+            "find_session_in_window",
+            {"query": "auth", "start": "4000", "end": "6000"},
+        )
+    payload = json.loads(result.content[0].text)
+    assert payload["count"] == 1
+    assert payload["results"][0]["title"] == "auth fix"
+    del tmp_path
+
+
+@pytest.mark.asyncio
+async def test_find_session_in_window_rejects_inverted(server):
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "find_session_in_window",
+            {"query": "x", "start": "5000", "end": "1000"},
+        )
+    payload = json.loads(result.content[0].text)
+    assert "error" in payload
+    assert payload["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_event_stats_empty_db(server):
+    async with Client(server) as client:
+        result = await client.call_tool("event_stats", {})
+    payload = json.loads(result.content[0].text)
+    assert payload["total_events"] == 0
+    assert payload["by_source"] == {}
+    assert payload["oldest_ts"] is None
+    assert payload["newest_ts"] is None
+    assert payload["oldest_iso"] is None
+    assert payload["newest_iso"] is None
+    assert payload["db_size_bytes"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_event_stats_populated(server, tmp_path):
+    """Seed events from two sources; confirm counts, bounds, and ISO formatting."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        upsert_event(
+            seed_conn,
+            Event(source="git", source_id="a", ts=1000, title="t", body="", payload={}),
+        )
+        upsert_event(
+            seed_conn,
+            Event(source="git", source_id="b", ts=2000, title="t", body="", payload={}),
+        )
+        upsert_event(
+            seed_conn,
+            Event(source="chrome", source_id="c", ts=3000, title="t", body="", payload={}),
+        )
+    finally:
+        seed_conn.close()
+
+    async with Client(server) as client:
+        result = await client.call_tool("event_stats", {})
+    payload = json.loads(result.content[0].text)
+    assert payload["total_events"] == 3
+    assert payload["by_source"] == {"git": 2, "chrome": 1}
+    assert payload["oldest_ts"] == 1000
+    assert payload["newest_ts"] == 3000
+    # ISO formatting sanity — ts=1000 is 1970-01-01T00:16:40Z.
+    assert payload["oldest_iso"].startswith("1970-01-01")
+    assert payload["db_size_bytes"] > 0
+    del tmp_path
 
 
 @pytest.mark.asyncio
