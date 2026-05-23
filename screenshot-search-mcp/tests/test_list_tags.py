@@ -51,3 +51,32 @@ def test_list_all_tags_limit_caps_result(conn):
 
 def test_list_all_tags_empty_db_returns_empty_list(conn):
     assert store.list_all_tags(conn) == []
+
+
+def test_remove_tags_removes_specific_tags(conn):
+    image_id = store.upsert_image(conn, path="a.png", mtime=1.0, size=1)
+    store.set_tags(conn, image_id, ["bug", "urgent", "ui"])
+    remaining = store.remove_tags(conn, image_id, ["bug", "urgent"])
+    assert remaining == ["ui"]
+
+
+def test_remove_tags_none_clears_all(conn):
+    image_id = store.upsert_image(conn, path="a.png", mtime=1.0, size=1)
+    store.set_tags(conn, image_id, ["bug", "urgent"])
+    remaining = store.remove_tags(conn, image_id, None)
+    assert remaining == []
+
+
+def test_remove_tags_is_case_insensitive(conn):
+    image_id = store.upsert_image(conn, path="a.png", mtime=1.0, size=1)
+    store.set_tags(conn, image_id, ["Important"])
+    # The tag is stored as "important"; remove via mixed case.
+    remaining = store.remove_tags(conn, image_id, ["IMPORTANT"])
+    assert remaining == []
+
+
+def test_remove_tags_unknown_is_noop(conn):
+    image_id = store.upsert_image(conn, path="a.png", mtime=1.0, size=1)
+    store.set_tags(conn, image_id, ["bug"])
+    remaining = store.remove_tags(conn, image_id, ["not-a-real-tag"])
+    assert remaining == ["bug"]
