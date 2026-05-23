@@ -1,9 +1,10 @@
 """personal-timeline CLI — administrative subcommands.
 
 Usage:
-    personal-timeline init     # bootstrap config + create the DB
-    personal-timeline index    # run a one-shot reindex (added later)
-    personal-timeline wipe     # remove the index (added later)
+    personal-timeline init                  # bootstrap config + create the DB
+    personal-timeline index                 # run a one-shot reindex
+    personal-timeline watch [--interval N]  # loop: reindex every N seconds
+    personal-timeline wipe                  # remove the index
 
 The server itself is `personal-timeline-mcp` (in server.py). The CLI is for
 out-of-band setup and maintenance.
@@ -14,6 +15,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 from pathlib import Path
 
 from . import config, store
@@ -101,6 +103,44 @@ def cmd_index(args) -> int:
     return 0
 
 
+def cmd_watch(args) -> int:
+    """Reindex on a loop. Ctrl-C to stop.
+
+    Calls the server's `index_sources` dispatcher on a fixed cadence so the
+    timeline stays fresh without running a long-lived MCP session. `--once`
+    makes the loop fire exactly one cycle (useful for cron / smoke tests).
+    """
+    cfg_path = Path(args.config).expanduser() if args.config else config.DEFAULT_CONFIG_PATH
+    cfg = config.load(cfg_path)
+    db_path = Path(args.db).expanduser() if args.db else cfg.db_path
+
+    os.environ["PERSONAL_TIMELINE_DB"] = str(db_path)
+    from . import server as srv
+
+    srv.reset_connection()
+
+    interval = max(1, int(args.interval))
+    cycles = 0
+    print(f"Watching DB={db_path} every {interval}s (Ctrl-C to stop)")
+    try:
+        while True:
+            t0 = time.time()
+            result = srv.index_sources(force_full=False)
+            cycles += 1
+            ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            took = time.time() - t0
+            print(
+                f"[{ts}] cycle={cycles} ingested={result['total_ingested']} "
+                f"errors={len(result['errors'])} took={took:.2f}s"
+            )
+            if args.once:
+                return 0
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print(f"\nStopped after {cycles} cycle(s).")
+        return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="personal-timeline",
@@ -124,6 +164,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Clear source_state first so every source rewalks from the start",
     )
     idx_p.set_defaults(func=cmd_index)
+
+    watch_p = sub.add_parser("watch", help="Loop: reindex every N seconds")
+    watch_p.add_argument(
+        "--interval",
+        default=300,
+        type=int,
+        help="Seconds between reindex passes (default: 300)",
+    )
+    watch_p.add_argument(
+        "--once",
+        action="store_true",
+        help="Run one reindex cycle and exit (useful for cron / smoke tests)",
+    )
+    watch_p.set_defaults(func=cmd_watch)
 
     wipe_p = sub.add_parser("wipe", help="Delete the index database (privacy)")
     wipe_p.add_argument(

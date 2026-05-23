@@ -60,6 +60,8 @@ class Config:
             sources={
                 "chrome": SourceConfig(enabled=False),
                 "firefox": SourceConfig(enabled=False),
+                "safari": SourceConfig(enabled=False),
+                "vscode": SourceConfig(enabled=False, options={"flavors": ["code"]}),
                 "git": SourceConfig(enabled=False, options={"repos": [], "author_email": None}),
                 "filesystem": SourceConfig(
                     enabled=False, options={"dirs": [], "ignore": list(DEFAULT_IGNORE)}
@@ -120,6 +122,17 @@ enabled = false
 
 [sources.firefox]
 enabled = false
+
+[sources.safari]
+enabled = false
+# macOS only. Auto-locates ~/Library/Safari/History.db.
+# history_db = "~/Library/Safari/History.db"  # optional override
+
+[sources.vscode]
+enabled = false
+# Reads VS Code workspaceStorage to record "last active in workspace X" events.
+# Supported flavors: "code" (regular), "code-insiders", "vscodium".
+flavors = ["code"]
 
 [sources.git]
 enabled = false

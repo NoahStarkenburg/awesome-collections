@@ -40,6 +40,7 @@ async def test_all_tools_are_listed(server):
         "what_changed_today",
         "find_session",
         "summarize_workday",
+        "summarize_week",
         "correlate",
     }
 
@@ -122,3 +123,88 @@ async def test_what_changed_today_via_protocol(server):
     payload = json.loads(result.content[0].text)
     assert payload["date"] == "2026-05-15"
     assert payload["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_summarize_week_handles_empty_db(server):
+    async with Client(server) as client:
+        result = await client.call_tool("summarize_week", {"week_start": "2026-05-11"})
+    payload = json.loads(result.content[0].text)
+    assert payload["week_start"] == "2026-05-11"
+    assert payload["week_end"] == "2026-05-17"
+    assert payload["total_events"] == 0
+    assert len(payload["days"]) == 7
+    assert payload["days"][0]["date"] == "2026-05-11"
+    assert payload["days"][6]["date"] == "2026-05-17"
+    # Each day's per-source dict + active_hours present even with no events.
+    for day in payload["days"]:
+        assert day["by_source"] == {}
+        assert day["active_hours"] is None
+        # Internal `_file_hits` must be stripped — clients should only see the
+        # summarized `top_files` list.
+        assert "_file_hits" not in day
+
+
+@pytest.mark.asyncio
+async def test_summarize_week_aggregates_across_days(server, tmp_path):
+    """Seeds the DB out-of-band (own connection in the test thread), then
+    asks summarize_week to roll it up via the MCP protocol."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        # Two git commits on 2026-05-11 (Mon), one on 2026-05-13 (Wed). Each
+        # commit touches "src/server.py" so it appears in top_files.
+        base_mon = 1778457600  # 2026-05-11T00:00:00Z (Monday)
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="sha:aaa",
+                ts=base_mon + 3600,
+                title="Wire foo",
+                body="",
+                payload={"sha": "aaa", "files": ["src/server.py"]},
+            ),
+        )
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="sha:bbb",
+                ts=base_mon + 7200,
+                title="Wire bar",
+                body="",
+                payload={"sha": "bbb", "files": ["src/server.py", "src/cli.py"]},
+            ),
+        )
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="sha:ccc",
+                ts=base_mon + (86400 * 2) + 3600,  # Wed
+                title="Wire baz",
+                body="",
+                payload={"sha": "ccc", "files": ["src/cli.py"]},
+            ),
+        )
+    finally:
+        seed_conn.close()
+
+    async with Client(server) as client:
+        result = await client.call_tool("summarize_week", {"week_start": "2026-05-11"})
+    payload = json.loads(result.content[0].text)
+    assert payload["total_events"] == 3
+    assert payload["by_source"] == {"git": 3}
+    # File hits: server.py twice, cli.py twice across the week.
+    top = {f["path"]: f["hits"] for f in payload["top_files"]}
+    assert top == {"src/server.py": 2, "src/cli.py": 2}
+    # Per-day breakdown: Monday has 2 commits, Wednesday has 1, rest empty.
+    counts_by_day = {d["date"]: d["total_events"] for d in payload["days"]}
+    assert counts_by_day["2026-05-11"] == 2
+    assert counts_by_day["2026-05-13"] == 1
+    assert counts_by_day["2026-05-17"] == 0
+    del tmp_path  # silence unused-arg lint
