@@ -117,16 +117,24 @@ def index_directory(
     if not target.is_dir():
         return {"error": f"Not a directory: {target}"}
 
+    cfg = config.load()
     if ocr_languages:
         ocr_lang = "+".join(ocr_languages)
     else:
-        ocr_lang = config.load().tesseract_lang()
+        ocr_lang = cfg.tesseract_lang()
 
     conn = _get_conn()
-    result = index.index_directory(conn, target, recursive=recursive, ocr_lang=ocr_lang)
+    result = index.index_directory(
+        conn,
+        target,
+        recursive=recursive,
+        ocr_lang=ocr_lang,
+        max_bytes=cfg.max_index_bytes,
+    )
     payload = result.as_dict()
     payload["root"] = str(target)
     payload["ocr_lang"] = ocr_lang
+    payload["max_bytes"] = cfg.max_index_bytes
     _last_result = payload
     return payload
 
@@ -306,6 +314,169 @@ def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) 
         "tolerance": tolerance,
         "count": len(out),
         "results": out,
+    }
+
+
+@mcp.tool()
+def reindex_directory(
+    path: str,
+    recursive: bool = True,
+    ocr_languages: list[str] | None = None,
+) -> dict:
+    """Drop any cached rows under `path` and re-run the indexer.
+
+    Useful when something downstream of the cached row has changed:
+    a Tesseract upgrade (OCR text would differ), a new
+    `ocr_languages` config, a CLIP model swap, etc. Equivalent to
+    `delete_indexed_directory(path)` followed by `index_directory(path)`
+    in one call.
+
+    Returns the union of both operations' results: `deleted_count` plus
+    the standard `index_directory` summary.
+    """
+    target = Path(path).expanduser().resolve()
+    if not target.is_dir():
+        return {"error": f"Not a directory: {target}"}
+
+    conn = _get_conn()
+    deleted = store.delete_by_path_prefix(conn, str(target))
+
+    cfg = config.load()
+    if ocr_languages:
+        ocr_lang = "+".join(ocr_languages)
+    else:
+        ocr_lang = cfg.tesseract_lang()
+
+    result = index.index_directory(
+        conn,
+        target,
+        recursive=recursive,
+        ocr_lang=ocr_lang,
+        max_bytes=cfg.max_index_bytes,
+    )
+    payload = result.as_dict()
+    payload["root"] = str(target)
+    payload["deleted_count"] = int(deleted)
+    payload["ocr_lang"] = ocr_lang
+    payload["max_bytes"] = cfg.max_index_bytes
+    global _last_result
+    _last_result = payload
+    return payload
+
+
+@mcp.tool()
+def compare_images(image_path_a: str, image_path_b: str) -> dict:
+    """Compute CLIP cosine similarity between two specific images.
+
+    Neither image needs to be in the index — useful for ad-hoc "are these
+    two screenshots the same screen / very similar?" questions where you
+    don't want to bring an entire directory into the indexer.
+
+    Returns:
+        - `similarity`: cosine sim in [-1, 1]. Both embeddings are already
+          L2-normalized so this is just the dot product. 1.0 = identical,
+          0.0 = unrelated, -1.0 = opposite direction (rare with CLIP).
+        - `distance`: `1 - similarity`, for callers that prefer a 0=match
+          distance metric.
+
+    Returns `{error: ...}` (no `similarity`) if CLIP can't be loaded or
+    either image is missing/unreadable.
+    """
+    import struct as _struct
+
+    a = Path(image_path_a).expanduser().resolve()
+    b = Path(image_path_b).expanduser().resolve()
+    if not a.is_file():
+        return {"error": f"Not a file: {a}"}
+    if not b.is_file():
+        return {"error": f"Not a file: {b}"}
+
+    try:
+        blob_a = clip.embed_image(a)
+        blob_b = clip.embed_image(b)
+    except (ImportError, FileNotFoundError, OSError) as exc:
+        return {"error": str(exc)}
+
+    dim = len(blob_a) // 4
+    if len(blob_b) != dim * 4:
+        return {"error": "Embedding dimensionality mismatch — re-check CLIP install."}
+    va = _struct.unpack(f"<{dim}f", blob_a)
+    vb = _struct.unpack(f"<{dim}f", blob_b)
+    # Both embeddings are L2-normalized by clip.embed_image, so cosine
+    # similarity == dot product. No need to renormalize.
+    similarity = float(sum(x * y for x, y in zip(va, vb, strict=True)))
+    return {
+        "image_a": str(a),
+        "image_b": str(b),
+        "model": clip.model_tag(),
+        "similarity": similarity,
+        "distance": 1.0 - similarity,
+    }
+
+
+@mcp.tool()
+def delete_indexed_directory(path: str) -> dict:
+    """Drop every indexed image (and its embeddings + tags) under `path`.
+
+    Privacy escape hatch. Matching is a `path LIKE prefix%` so the
+    directory should be passed as an absolute path; SQLite wildcards are
+    escaped so a directory containing `%` in its name behaves correctly.
+
+    Returns: {prefix, deleted_count}.
+    """
+    target = Path(path).expanduser().resolve()
+    prefix = str(target)
+    conn = _get_conn()
+    deleted = store.delete_by_path_prefix(conn, prefix)
+    return {"prefix": prefix, "deleted_count": int(deleted)}
+
+
+@mcp.tool()
+def tag_image(image_path: str, tags: list[str], mode: str = "add") -> dict:
+    """Attach user-supplied tags to an indexed image.
+
+    Tags are normalized (stripped, lowercased) so callers don't have to
+    worry about case sensitivity. `mode="add"` keeps any existing tags;
+    `mode="replace"` clears them first.
+
+    The image must already be in the index — call `index_directory` over
+    its parent dir first if not. Returns the resulting tag set.
+    """
+    target = Path(image_path).expanduser().resolve()
+    conn = _get_conn()
+    row = store.get_by_path(conn, str(target))
+    if row is None:
+        return {"error": f"Not indexed: {target}", "tags": []}
+    if mode not in ("add", "replace"):
+        return {"error": f"Unknown mode: {mode!r} (use 'add' or 'replace')", "tags": []}
+    resulting = store.set_tags(conn, int(row["id"]), tags, mode=mode)
+    return {"path": str(target), "tags": resulting, "mode": mode}
+
+
+@mcp.tool()
+def search_by_tag(tag: str, since: str | None = None, max_results: int = 50) -> dict:
+    """Return indexed images carrying `tag` (exact match, case-insensitive).
+
+    Useful when CLIP / OCR don't catch what you want and you'd rather
+    explicitly mark images. Pair with `tag_image` to build the tag set.
+    """
+    since_ts: float | None = None
+    if since:
+        since_ts = _parse_since(since)
+    conn = _get_conn()
+    rows = store.find_by_tag(conn, tag, since=since_ts, max_results=max_results)
+    return {
+        "tag": tag.strip().lower(),
+        "count": len(rows),
+        "results": [
+            {
+                "path": r["path"],
+                "mtime": float(r["mtime"]),
+                "size": int(r["size"]),
+                "tags": store.get_tags(conn, int(r["id"])),
+            }
+            for r in rows
+        ],
     }
 
 
