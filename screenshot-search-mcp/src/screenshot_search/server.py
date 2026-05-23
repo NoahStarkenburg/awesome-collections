@@ -310,6 +310,23 @@ def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) 
 
 
 @mcp.tool()
+def delete_indexed_directory(path: str) -> dict:
+    """Drop every indexed image (and its embeddings + tags) under `path`.
+
+    Privacy escape hatch. Matching is a `path LIKE prefix%` so the
+    directory should be passed as an absolute path; SQLite wildcards are
+    escaped so a directory containing `%` in its name behaves correctly.
+
+    Returns: {prefix, deleted_count}.
+    """
+    target = Path(path).expanduser().resolve()
+    prefix = str(target)
+    conn = _get_conn()
+    deleted = store.delete_by_path_prefix(conn, prefix)
+    return {"prefix": prefix, "deleted_count": int(deleted)}
+
+
+@mcp.tool()
 def tag_image(image_path: str, tags: list[str], mode: str = "add") -> dict:
     """Attach user-supplied tags to an indexed image.
 

@@ -223,6 +223,20 @@ def get_by_path(conn: sqlite3.Connection, path: str) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM images WHERE path = ?", (path,)).fetchone()
 
 
+def delete_by_path_prefix(conn: sqlite3.Connection, prefix: str) -> int:
+    """Drop all image rows whose path starts with `prefix`. Returns the
+    deleted-row count. Embeddings and tags vanish via ON DELETE CASCADE."""
+    # Escape SQLite LIKE wildcards in the user-supplied prefix so a path
+    # containing `%` doesn't accidentally delete extra rows.
+    escaped = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    cur = conn.execute(
+        "DELETE FROM images WHERE path LIKE ? ESCAPE '\\'",
+        (f"{escaped}%",),
+    )
+    conn.commit()
+    return int(cur.rowcount)
+
+
 def list_images(
     conn: sqlite3.Connection,
     *,
