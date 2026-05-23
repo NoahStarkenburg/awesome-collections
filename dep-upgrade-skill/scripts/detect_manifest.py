@@ -138,6 +138,42 @@ def _read_cargo(path: Path) -> dict | None:
     return {"path": path.name, "ecosystem": "cargo", "dependencies": deps}
 
 
+def _read_package_lock(path: Path) -> dict | None:
+    """Parse an npm `package-lock.json` (v2/v3 schema).
+
+    Yields exact installed versions from the `packages` map (not the
+    semver ranges in `dependencies` / `devDependencies` of package.json).
+    Use this when you need to know what's actually in `node_modules`,
+    which is what upgrade-impact analysis really wants.
+
+    Keys in the `packages` dict are like `node_modules/react` for top-
+    level deps and `node_modules/<a>/node_modules/<b>` for nested ones.
+    The last `node_modules/` segment names the package; if the same
+    package appears at multiple depths with different versions, the
+    last one wins (matching how Node resolves at runtime).
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    packages = data.get("packages") or {}
+    if not isinstance(packages, dict):
+        return {"path": path.name, "ecosystem": "npm-lock", "dependencies": {}}
+    deps: dict[str, str] = {}
+    for key, entry in packages.items():
+        if not isinstance(key, str) or not isinstance(entry, dict):
+            continue
+        if "node_modules/" not in key:
+            continue
+        name = key.rsplit("node_modules/", 1)[-1]
+        if not name:
+            continue
+        version = entry.get("version")
+        if isinstance(version, str) and version:
+            deps[name] = version
+    return {"path": path.name, "ecosystem": "npm-lock", "dependencies": deps}
+
+
 def _read_composer(path: Path) -> dict | None:
     """Parse a PHP `composer.json`.
 
@@ -166,6 +202,7 @@ def _read_composer(path: Path) -> dict | None:
 
 READERS = {
     "package.json": _read_npm,
+    "package-lock.json": _read_package_lock,
     "pyproject.toml": _read_pyproject,
     "Cargo.toml": _read_cargo,
     "composer.json": _read_composer,

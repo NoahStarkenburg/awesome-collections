@@ -87,6 +87,85 @@ def test_read_composer_handles_broken_json(tmp_path: Path):
     assert dm.detect(tmp_path) == []
 
 
+# -- npm package-lock.json -----------------------------------------------------
+
+
+def test_read_package_lock_top_level(tmp_path: Path):
+    (tmp_path / "package-lock.json").write_text(
+        json.dumps(
+            {
+                "name": "myapp",
+                "lockfileVersion": 3,
+                "packages": {
+                    "": {"version": "1.0.0"},  # root package, has no name segment
+                    "node_modules/react": {"version": "18.2.0"},
+                    "node_modules/lodash": {"version": "4.17.21"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    # The root project ("" key) is filtered since it has no name segment.
+    lock = next(m for m in out if m["ecosystem"] == "npm-lock")
+    assert lock["dependencies"] == {
+        "react": "18.2.0",
+        "lodash": "4.17.21",
+    }
+
+
+def test_read_package_lock_handles_nested_deps(tmp_path: Path):
+    """Nested deps use the last `node_modules/<name>` segment as the
+    package name. If a package appears at multiple depths, the last
+    occurrence wins (matches Node runtime resolution)."""
+    (tmp_path / "package-lock.json").write_text(
+        json.dumps(
+            {
+                "packages": {
+                    "node_modules/lodash": {"version": "4.17.20"},
+                    "node_modules/some-pkg/node_modules/lodash": {"version": "4.17.21"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    lock = next(m for m in out if m["ecosystem"] == "npm-lock")
+    # Last occurrence ("nested") wins.
+    assert lock["dependencies"]["lodash"] == "4.17.21"
+
+
+def test_read_package_lock_handles_broken_json(tmp_path: Path):
+    (tmp_path / "package-lock.json").write_text("{not json", encoding="utf-8")
+    assert dm.detect(tmp_path) == []
+
+
+def test_read_package_lock_coexists_with_package_json(tmp_path: Path):
+    """A typical npm repo has both files; detect_manifest should surface both."""
+    (tmp_path / "package.json").write_text(
+        json.dumps({"dependencies": {"react": "^18.0.0"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text(
+        json.dumps(
+            {
+                "packages": {
+                    "node_modules/react": {"version": "18.2.0"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    ecosystems = sorted(m["ecosystem"] for m in out)
+    assert ecosystems == ["npm", "npm-lock"]
+    npm = next(m for m in out if m["ecosystem"] == "npm")
+    npm_lock = next(m for m in out if m["ecosystem"] == "npm-lock")
+    # package.json reports the semver range; lockfile reports the resolved version.
+    assert npm["dependencies"]["react"] == "^18.0.0"
+    assert npm_lock["dependencies"]["react"] == "18.2.0"
+
+
 # -- multi-manifest scan -------------------------------------------------------
 
 
