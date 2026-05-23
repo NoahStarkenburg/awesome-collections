@@ -2,7 +2,8 @@
 
 Provides schema management plus a minimal API:
     upsert_image, get_by_path, list_images, search_text, nearest_neighbors,
-    set_embedding, get_embedding, set_tags, get_tags, find_by_tag.
+    set_embedding, get_embedding,
+    set_tags, get_tags, remove_tags, find_by_tag, list_all_tags.
 """
 
 from __future__ import annotations
@@ -164,6 +165,53 @@ def get_tags(conn: sqlite3.Connection, image_id: int) -> list[str]:
         (int(image_id),),
     ).fetchall()
     return [row["tag"] for row in rows]
+
+
+def remove_tags(
+    conn: sqlite3.Connection,
+    image_id: int,
+    tags: Iterable[str] | None = None,
+) -> list[str]:
+    """Remove tags from an image. `tags=None` clears all tags.
+
+    Returns the remaining tag set for the image, sorted. Tag matching is
+    case-insensitive (same normalization as `set_tags`)."""
+    if tags is None:
+        conn.execute("DELETE FROM image_tags WHERE image_id = ?", (int(image_id),))
+    else:
+        normalized = {t.strip().lower() for t in tags if t and t.strip()}
+        for tag in normalized:
+            conn.execute(
+                "DELETE FROM image_tags WHERE image_id = ? AND tag = ?",
+                (int(image_id), tag),
+            )
+    conn.commit()
+    return get_tags(conn, image_id)
+
+
+def list_all_tags(
+    conn: sqlite3.Connection,
+    *,
+    min_count: int = 1,
+    limit: int = 200,
+) -> list[tuple[str, int]]:
+    """Return every tag in the index with its image count, sorted desc.
+
+    `min_count` lets callers hide one-off tags (often typos). `limit` caps
+    the result so a runaway tag table can't overwhelm an MCP response.
+    """
+    rows = conn.execute(
+        """
+        SELECT tag, COUNT(*) AS c
+        FROM image_tags
+        GROUP BY tag
+        HAVING c >= ?
+        ORDER BY c DESC, tag ASC
+        LIMIT ?
+        """,
+        (int(min_count), int(limit)),
+    ).fetchall()
+    return [(row["tag"], int(row["c"])) for row in rows]
 
 
 def find_by_tag(

@@ -79,6 +79,7 @@ async def test_all_tools_are_listed(server):
         "search_by_color",
         "tag_image",
         "search_by_tag",
+        "list_tags",
         "delete_indexed_directory",
         "compare_images",
         "reindex_directory",
