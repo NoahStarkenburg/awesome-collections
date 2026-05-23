@@ -208,6 +208,53 @@ def test_fetch_release_notes_composer(offline):
     assert result["versions"] == ["3.4.0", "3.5.0"]
 
 
+# -- Go module proxy -----------------------------------------------------------
+
+
+def test_gomod_escape_lowercases_uppercase():
+    """The Go module proxy expects capital letters as `!<lower>`."""
+    assert frn._gomod_escape("github.com/Foo/Bar") == "github.com/!foo/!bar"
+    assert frn._gomod_escape("github.com/foo/bar") == "github.com/foo/bar"
+
+
+def test_parse_repo_url_gomod_github():
+    assert frn.parse_repo_url_gomod("github.com/spf13/cobra") == "https://github.com/spf13/cobra"
+
+
+def test_parse_repo_url_gomod_non_github_returns_none():
+    assert frn.parse_repo_url_gomod("gopkg.in/yaml.v3") is None
+    assert frn.parse_repo_url_gomod("golang.org/x/tools") is None
+
+
+def test_fetch_release_notes_gomod(monkeypatch):
+    """End-to-end through the gomod path with proxy responses mocked."""
+    from urllib.error import URLError
+
+    proxy_response = "v1.0.0\nv1.1.0\nv1.2.0\nv2.0.0-beta.1\n"
+
+    def fake_text(url, timeout=15):
+        if "proxy.golang.org/github.com/foo/bar/@v/list" in url:
+            return proxy_response
+        # find_changelog_text catches URLError and falls through to the next
+        # candidate — use it (not FileNotFoundError) so the changelog probe
+        # exits gracefully.
+        raise URLError("not found")
+
+    def fake_json(url, timeout=15):
+        if "api.github.com" in url and "releases" in url:
+            return []
+        raise AssertionError(f"unexpected JSON GET: {url}")
+
+    monkeypatch.setattr(frn, "http_get_text", fake_text)
+    monkeypatch.setattr(frn, "http_get_json", fake_json)
+
+    result = frn.fetch_release_notes("github.com/foo/bar", "1.0.0", "1.2.0", "gomod")
+    assert result["ecosystem"] == "gomod"
+    assert result["repo_url"] == "https://github.com/foo/bar"
+    # 1.0.0 is lo-exclusive; 2.0.0-beta.1 is prerelease.
+    assert result["versions"] == ["1.1.0", "1.2.0"]
+
+
 # -- disk cache -----------------------------------------------------------------
 
 

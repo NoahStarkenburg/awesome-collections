@@ -174,6 +174,54 @@ def _read_package_lock(path: Path) -> dict | None:
     return {"path": path.name, "ecosystem": "npm-lock", "dependencies": deps}
 
 
+def _read_gomod(path: Path) -> dict | None:
+    """Parse a Go `go.mod` file.
+
+    Pulls dependencies from `require` blocks (both the parenthesized
+    block form and single-line `require X v0.0.0` form). Lines marked
+    `// indirect` are excluded — those aren't direct dependencies and
+    bumping them via upgrade-impact would be misleading.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    deps: dict[str, str] = {}
+
+    def _absorb(line: str) -> None:
+        # Strip comments after `//`.
+        if "//" in line and "indirect" in line.split("//", 1)[1]:
+            return
+        body = line.split("//", 1)[0].strip()
+        if not body:
+            return
+        parts = body.split()
+        if len(parts) < 2:
+            return
+        module, version = parts[0], parts[1]
+        deps[module] = version
+
+    # Multi-line `require (` block.
+    for block_match in re.finditer(r"^require\s*\(\s*\n((?:.|\n)*?)^\)", text, re.M):
+        for raw_line in block_match.group(1).splitlines():
+            _absorb(raw_line)
+
+    # Single-line `require <module> <version>`.
+    for line in text.splitlines():
+        m = re.match(r"^\s*require\s+(\S+)\s+(\S+)(?:\s*//.*)?$", line)
+        if m:
+            mod = m.group(1)
+            # Skip when it's the block opener.
+            if mod == "(":
+                continue
+            ver = m.group(2)
+            if "//" in line and "indirect" in line.split("//", 1)[1]:
+                continue
+            deps[mod] = ver
+
+    return {"path": path.name, "ecosystem": "gomod", "dependencies": deps}
+
+
 def _read_composer(path: Path) -> dict | None:
     """Parse a PHP `composer.json`.
 
@@ -206,6 +254,7 @@ READERS = {
     "pyproject.toml": _read_pyproject,
     "Cargo.toml": _read_cargo,
     "composer.json": _read_composer,
+    "go.mod": _read_gomod,
 }
 
 

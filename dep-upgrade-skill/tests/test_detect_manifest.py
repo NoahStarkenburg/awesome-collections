@@ -203,6 +203,48 @@ def test_read_pyproject_pep621(tmp_path: Path):
     assert out[0]["dependencies"]["click"] == ">=8.0"
 
 
+# -- go modules ----------------------------------------------------------------
+
+
+def test_read_gomod_parses_block_and_single(tmp_path: Path):
+    (tmp_path / "go.mod").write_text(
+        "module example.com/foo\n"
+        "\n"
+        "go 1.21\n"
+        "\n"
+        "require (\n"
+        "    github.com/foo/bar v1.2.3\n"
+        "    github.com/baz/qux v0.0.0-20240101120000-abcdef1234567\n"
+        ")\n"
+        "\n"
+        "require github.com/single v0.5.0\n",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    assert len(out) == 1
+    m = out[0]
+    assert m["ecosystem"] == "gomod"
+    assert m["dependencies"] == {
+        "github.com/foo/bar": "v1.2.3",
+        "github.com/baz/qux": "v0.0.0-20240101120000-abcdef1234567",
+        "github.com/single": "v0.5.0",
+    }
+
+
+def test_read_gomod_skips_indirect(tmp_path: Path):
+    (tmp_path / "go.mod").write_text(
+        "require (\n"
+        "    github.com/foo/bar v1.0.0\n"
+        "    github.com/transitive/dep v0.1.0 // indirect\n"
+        ")\n",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    deps = out[0]["dependencies"]
+    assert "github.com/foo/bar" in deps
+    assert "github.com/transitive/dep" not in deps
+
+
 # -- cargo ---------------------------------------------------------------------
 
 
