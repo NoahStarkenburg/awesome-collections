@@ -415,6 +415,31 @@ def compare_images(image_path_a: str, image_path_b: str) -> dict:
 
 
 @mcp.tool()
+def rename_indexed_path(old_path: str, new_path: str) -> dict:
+    """Update an indexed image's path without re-OCR/CLIP.
+
+    Use after a disk-side move/rename so embeddings, OCR text, dominant
+    color, captured_at, and tags all carry over to the new location.
+    Resolves both paths the same way `index_directory` does — symlink and
+    `~` expansion are honored.
+
+    Returns:
+        - `{status: "renamed", ...}` — the index row now points at the new path.
+        - `{status: "missing"}`     — no indexed row at `old_path`.
+        - `{status: "conflict"}`    — `new_path` is already indexed.
+    """
+    src = Path(old_path).expanduser().resolve()
+    dst = Path(new_path).expanduser().resolve()
+    conn = _get_conn()
+    status = store.rename_path(conn, str(src), str(dst))
+    return {
+        "status": status,
+        "old_path": str(src),
+        "new_path": str(dst),
+    }
+
+
+@mcp.tool()
 def delete_indexed_directory(path: str) -> dict:
     """Drop every indexed image (and its embeddings + tags) under `path`.
 

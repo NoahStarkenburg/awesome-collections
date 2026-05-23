@@ -82,6 +82,7 @@ async def test_all_tools_are_listed(server):
         "search_by_tag",
         "list_tags",
         "delete_indexed_directory",
+        "rename_indexed_path",
         "compare_images",
         "reindex_directory",
         "extract_text",
