@@ -1,13 +1,19 @@
-"""Tests for `exif.capture_time` and end-to-end captured_at ingestion."""
+"""Tests for `exif.capture_time` and end-to-end captured_at ingestion.
+
+`piexif` is the cleanest way to write EXIF metadata into fixture JPEGs;
+it's a [dev]-extras dep, not a production dep. CI runs install only the
+production deps, so importorskip here keeps the suite collectible.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import piexif
 import pytest
 from PIL import Image
 from screenshot_search import exif, index, store
+
+piexif = pytest.importorskip("piexif")
 
 
 def _make_image_with_exif(path: Path, datetime_original: str | None = None) -> Path:
