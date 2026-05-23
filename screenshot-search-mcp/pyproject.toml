@@ -40,6 +40,9 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pypdfium2>=4.30",
+    # piexif is only used by tests to write EXIF metadata into fixture JPEGs;
+    # the production code reads EXIF via Pillow alone.
+    "piexif>=1.1",
 ]
 # Convenience: `pip install -e .[all]` for the full feature set.
 all = [

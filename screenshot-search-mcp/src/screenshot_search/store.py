@@ -2,7 +2,8 @@
 
 Provides schema management plus a minimal API:
     upsert_image, get_by_path, list_images, search_text, nearest_neighbors,
-    set_embedding, get_embedding, set_tags, get_tags, find_by_tag.
+    set_embedding, get_embedding,
+    set_tags, get_tags, remove_tags, find_by_tag, list_all_tags.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS images (
     sha256        TEXT,
     ocr_text      TEXT,
     dominant_rgb  INTEGER,
+    captured_at   REAL,
     indexed_at    REAL NOT NULL
 );
 
@@ -94,6 +96,8 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
     cols = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
     if "dominant_rgb" not in cols:
         conn.execute("ALTER TABLE images ADD COLUMN dominant_rgb INTEGER")
+    if "captured_at" not in cols:
+        conn.execute("ALTER TABLE images ADD COLUMN captured_at REAL")
 
 
 # -- image rows ----------------------------------------------------------------
@@ -108,23 +112,25 @@ def upsert_image(
     sha256: str | None = None,
     ocr_text: str | None = None,
     dominant_rgb: int | None = None,
+    captured_at: float | None = None,
 ) -> int:
     """Insert or update an image row. Returns the row id."""
     now = time.time()
     cur = conn.execute(
         """
-        INSERT INTO images (path, mtime, size, sha256, ocr_text, dominant_rgb, indexed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO images (path, mtime, size, sha256, ocr_text, dominant_rgb, captured_at, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET
             mtime = excluded.mtime,
             size = excluded.size,
             sha256 = COALESCE(excluded.sha256, images.sha256),
             ocr_text = COALESCE(excluded.ocr_text, images.ocr_text),
             dominant_rgb = COALESCE(excluded.dominant_rgb, images.dominant_rgb),
+            captured_at = COALESCE(excluded.captured_at, images.captured_at),
             indexed_at = excluded.indexed_at
         RETURNING id
         """,
-        (path, mtime, size, sha256, ocr_text, dominant_rgb, now),
+        (path, mtime, size, sha256, ocr_text, dominant_rgb, captured_at, now),
     )
     row = cur.fetchone()
     conn.commit()
@@ -164,6 +170,53 @@ def get_tags(conn: sqlite3.Connection, image_id: int) -> list[str]:
         (int(image_id),),
     ).fetchall()
     return [row["tag"] for row in rows]
+
+
+def remove_tags(
+    conn: sqlite3.Connection,
+    image_id: int,
+    tags: Iterable[str] | None = None,
+) -> list[str]:
+    """Remove tags from an image. `tags=None` clears all tags.
+
+    Returns the remaining tag set for the image, sorted. Tag matching is
+    case-insensitive (same normalization as `set_tags`)."""
+    if tags is None:
+        conn.execute("DELETE FROM image_tags WHERE image_id = ?", (int(image_id),))
+    else:
+        normalized = {t.strip().lower() for t in tags if t and t.strip()}
+        for tag in normalized:
+            conn.execute(
+                "DELETE FROM image_tags WHERE image_id = ? AND tag = ?",
+                (int(image_id), tag),
+            )
+    conn.commit()
+    return get_tags(conn, image_id)
+
+
+def list_all_tags(
+    conn: sqlite3.Connection,
+    *,
+    min_count: int = 1,
+    limit: int = 200,
+) -> list[tuple[str, int]]:
+    """Return every tag in the index with its image count, sorted desc.
+
+    `min_count` lets callers hide one-off tags (often typos). `limit` caps
+    the result so a runaway tag table can't overwhelm an MCP response.
+    """
+    rows = conn.execute(
+        """
+        SELECT tag, COUNT(*) AS c
+        FROM image_tags
+        GROUP BY tag
+        HAVING c >= ?
+        ORDER BY c DESC, tag ASC
+        LIMIT ?
+        """,
+        (int(min_count), int(limit)),
+    ).fetchall()
+    return [(row["tag"], int(row["c"])) for row in rows]
 
 
 def find_by_tag(
@@ -221,6 +274,30 @@ def search_by_color(
 
 def get_by_path(conn: sqlite3.Connection, path: str) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM images WHERE path = ?", (path,)).fetchone()
+
+
+def rename_path(
+    conn: sqlite3.Connection,
+    old_path: str,
+    new_path: str,
+) -> str:
+    """Update an indexed image's `path` to `new_path`.
+
+    Use after a disk-side move/rename so the index doesn't have to re-OCR
+    and re-embed the file. Embeddings and tags ride on the `id` column —
+    they survive the rename automatically.
+
+    Returns:
+        - `"renamed"`  if a row was updated.
+        - `"missing"`  if no row matched `old_path`.
+        - `"conflict"` if `new_path` is already indexed (UNIQUE constraint).
+    """
+    existing = conn.execute("SELECT id FROM images WHERE path = ?", (new_path,)).fetchone()
+    if existing is not None and new_path != old_path:
+        return "conflict"
+    cur = conn.execute("UPDATE images SET path = ? WHERE path = ?", (new_path, old_path))
+    conn.commit()
+    return "renamed" if cur.rowcount > 0 else "missing"
 
 
 def delete_by_path_prefix(conn: sqlite3.Connection, prefix: str) -> int:
