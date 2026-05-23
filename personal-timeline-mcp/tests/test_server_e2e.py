@@ -42,6 +42,7 @@ async def test_all_tools_are_listed(server):
         "summarize_workday",
         "summarize_week",
         "delete_events_in_range",
+        "export_events",
         "correlate",
     }
 
@@ -282,3 +283,96 @@ async def test_delete_events_in_range_source_filter(server, tmp_path):
     payload = json.loads(result.content[0].text)
     assert payload["deleted_count"] == 1  # only git row dropped
     del tmp_path  # silence unused-arg lint
+
+
+@pytest.mark.asyncio
+async def test_export_events_jsonl_round_trip(server, tmp_path):
+    """Seed events, export to JSONL, parse back, confirm shape + ordering."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        upsert_event(
+            seed_conn,
+            Event(
+                source="git",
+                source_id="sha:1",
+                ts=1000,
+                title="first",
+                body="",
+                payload={"sha": "abc", "files": ["a.py"]},
+            ),
+        )
+        upsert_event(
+            seed_conn,
+            Event(
+                source="chrome",
+                source_id="visit:1",
+                ts=2000,
+                title="hn",
+                body="https://news.ycombinator.com",
+                payload={"url": "https://news.ycombinator.com"},
+            ),
+        )
+    finally:
+        seed_conn.close()
+
+    out_path = tmp_path / "export.jsonl"
+    async with Client(server) as client:
+        result = await client.call_tool("export_events", {"output_path": str(out_path)})
+    payload = json.loads(result.content[0].text)
+    assert payload["count"] == 2
+    assert payload["output_path"] == str(out_path)
+    # Parse the JSONL back. Each line is a valid JSON dict with payload decoded.
+    lines = out_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    rows = [json.loads(line) for line in lines]
+    assert rows[0]["source"] == "git"
+    assert rows[0]["payload"] == {"sha": "abc", "files": ["a.py"]}
+    assert rows[1]["source"] == "chrome"
+    assert rows[1]["payload"] == {"url": "https://news.ycombinator.com"}
+
+
+@pytest.mark.asyncio
+async def test_export_events_respects_filters(server, tmp_path):
+    """since/until/sources should restrict what lands in the export."""
+    import os
+
+    from personal_timeline.store import Event, init_db, upsert_event
+
+    seed_conn = init_db(os.environ["PERSONAL_TIMELINE_DB"])
+    try:
+        for ts, source in [(100, "git"), (500, "chrome"), (1000, "git")]:
+            upsert_event(
+                seed_conn,
+                Event(
+                    source=source,
+                    source_id=f"{source}:{ts}",
+                    ts=ts,
+                    title="x",
+                    body="",
+                    payload={},
+                ),
+            )
+    finally:
+        seed_conn.close()
+
+    out_path = tmp_path / "filtered.jsonl"
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "export_events",
+            {
+                "output_path": str(out_path),
+                "since": "200",
+                "until": "1500",
+                "sources": ["git"],
+            },
+        )
+    payload = json.loads(result.content[0].text)
+    # Only ts=1000 git event matches all three filters.
+    assert payload["count"] == 1
+    rows = [json.loads(line) for line in out_path.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["source"] == "git"
+    assert rows[0]["ts"] == 1000

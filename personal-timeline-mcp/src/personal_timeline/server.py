@@ -443,6 +443,80 @@ def summarize_week(week_start: str | None = None) -> dict:
 
 
 @mcp.tool()
+def export_events(
+    output_path: str,
+    since: str | None = None,
+    until: str | None = None,
+    sources: list[str] | None = None,
+) -> dict:
+    """Stream events to a JSONL file for archival or porting to another system.
+
+    One JSON object per line: `{id, source, source_id, ts, end_ts, title,
+    body, payload}`. The payload is decoded back to a dict so consumers
+    don't have to re-parse `payload_json`.
+
+    Args:
+        output_path: destination file path. Parent directories are created.
+            An existing file is overwritten.
+        since: optional lower bound (inclusive). ISO-8601 or epoch seconds.
+        until: optional upper bound (inclusive). Same shape as `since`.
+        sources: optional source filter.
+
+    Returns: {output_path, count, since_ts, until_ts, sources}.
+    """
+    import json as _json
+
+    out = Path(output_path).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    start_ts = _parse_ts(since) if since else 0
+    end_ts = _parse_ts(until) if until else 2_147_483_647  # year 2038 sentinel
+    if end_ts < start_ts:
+        return {
+            "error": f"until ({end_ts}) is before since ({start_ts})",
+            "count": 0,
+        }
+
+    rows = store.events_in_range(
+        _get_conn(),
+        start_ts=start_ts,
+        end_ts=end_ts,
+        sources=sources,
+        limit=10_000_000,
+    )
+    count = 0
+    with out.open("w", encoding="utf-8") as fh:
+        for row in rows:
+            try:
+                payload = _json.loads(row["payload_json"] or "{}")
+            except (TypeError, ValueError):
+                payload = {}
+            fh.write(
+                _json.dumps(
+                    {
+                        "id": int(row["id"]),
+                        "source": row["source"],
+                        "source_id": row["source_id"],
+                        "ts": int(row["ts"]),
+                        "end_ts": None if row["end_ts"] is None else int(row["end_ts"]),
+                        "title": row["title"],
+                        "body": row["body"],
+                        "payload": payload,
+                    }
+                )
+            )
+            fh.write("\n")
+            count += 1
+    return {
+        "output_path": str(out),
+        "count": count,
+        "since_ts": start_ts,
+        "until_ts": end_ts,
+        "sources": sources,
+    }
+
+
+@mcp.tool()
 def delete_events_in_range(
     start: str,
     end: str,
