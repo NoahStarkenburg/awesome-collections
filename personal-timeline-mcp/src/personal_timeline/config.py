@@ -70,6 +70,7 @@ class Config:
                 "slack": SourceConfig(enabled=False, options={"export_dirs": []}),
                 "mbox": SourceConfig(enabled=False, options={"paths": []}),
                 "discord": SourceConfig(enabled=False, options={"package_dirs": []}),
+                "notion": SourceConfig(enabled=False, options={"export_dirs": []}),
             }
         )
 
@@ -173,6 +174,12 @@ enabled = false
 # One or more extracted Discord Data Package directories.
 # Each entry should contain a messages/ subdir with c<channel-id>/ entries.
 package_dirs = []
+
+[sources.notion]
+enabled = false
+# One or more extracted Notion HTML export directories.
+# Each .html under the export becomes one indexed event.
+export_dirs = []
 """
 
 
