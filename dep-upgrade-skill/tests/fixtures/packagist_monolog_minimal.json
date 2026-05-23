@@ -1,0 +1,46 @@
+{
+  "packages": {
+    "monolog/monolog": [
+      {
+        "name": "monolog/monolog",
+        "version": "3.5.0",
+        "version_normalized": "3.5.0.0",
+        "source": {
+          "type": "git",
+          "url": "https://github.com/Seldaek/monolog.git",
+          "reference": "abc123"
+        }
+      },
+      {
+        "name": "monolog/monolog",
+        "version": "3.4.0",
+        "version_normalized": "3.4.0.0",
+        "source": {
+          "type": "git",
+          "url": "https://github.com/Seldaek/monolog.git",
+          "reference": "def456"
+        }
+      },
+      {
+        "name": "monolog/monolog",
+        "version": "v3.3.1",
+        "version_normalized": "3.3.1.0",
+        "source": {
+          "type": "git",
+          "url": "https://github.com/Seldaek/monolog.git",
+          "reference": "ghi789"
+        }
+      },
+      {
+        "name": "monolog/monolog",
+        "version": "3.6.0-RC1",
+        "version_normalized": "3.6.0.0-RC1",
+        "source": {
+          "type": "git",
+          "url": "https://github.com/Seldaek/monolog.git",
+          "reference": "jkl000"
+        }
+      }
+    ]
+  }
+}

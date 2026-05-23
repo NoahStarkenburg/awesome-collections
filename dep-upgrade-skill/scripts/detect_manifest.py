@@ -138,10 +138,37 @@ def _read_cargo(path: Path) -> dict | None:
     return {"path": path.name, "ecosystem": "cargo", "dependencies": deps}
 
 
+def _read_composer(path: Path) -> dict | None:
+    """Parse a PHP `composer.json`.
+
+    Pulls from both `require` and `require-dev`. The `php` runtime
+    constraint itself is dropped — composer treats it as a dep but
+    upgrade-impact analysis would only do dumb things with it.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    deps: dict[str, str] = {}
+    for key in ("require", "require-dev"):
+        block = data.get(key) or {}
+        if not isinstance(block, dict):
+            continue
+        for name, ver in block.items():
+            if not isinstance(name, str) or not isinstance(ver, str):
+                continue
+            # Skip the PHP runtime constraint and platform-style "ext-*" entries.
+            if name == "php" or name.startswith("ext-") or name.startswith("lib-"):
+                continue
+            deps[name] = ver
+    return {"path": path.name, "ecosystem": "composer", "dependencies": deps}
+
+
 READERS = {
     "package.json": _read_npm,
     "pyproject.toml": _read_pyproject,
     "Cargo.toml": _read_cargo,
+    "composer.json": _read_composer,
 }
 
 
