@@ -23,7 +23,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from . import __version__, clip, index, ocr, store
+from . import __version__, clip, colors, config, index, ocr, store
 
 mcp = FastMCP(
     name="screenshot-search",
@@ -94,25 +94,39 @@ def index_status() -> dict:
 
 
 @mcp.tool()
-def index_directory(path: str, recursive: bool = True) -> dict:
+def index_directory(
+    path: str,
+    recursive: bool = True,
+    ocr_languages: list[str] | None = None,
+) -> dict:
     """Scan a directory for images and OCR-index any new or changed files.
 
     Args:
         path: directory to scan (absolute or expandable).
         recursive: walk subdirectories. Defaults to true.
+        ocr_languages: optional list of ISO 639-2 codes (e.g. ["eng", "spa"]).
+            Overrides the value from config.toml's `ocr_languages`. If both
+            are absent, defaults to ["eng"]. Each language listed must have a
+            matching Tesseract language pack installed.
 
     Returns a summary dict: scanned, indexed, skipped_unchanged, errored,
-    last_path. Call this before `search_text` / `search_visual`.
+    last_path, ocr_lang. Call this before `search_text` / `search_visual`.
     """
     global _last_result
     target = Path(path).expanduser().resolve()
     if not target.is_dir():
         return {"error": f"Not a directory: {target}"}
 
+    if ocr_languages:
+        ocr_lang = "+".join(ocr_languages)
+    else:
+        ocr_lang = config.load().tesseract_lang()
+
     conn = _get_conn()
-    result = index.index_directory(conn, target, recursive=recursive)
+    result = index.index_directory(conn, target, recursive=recursive, ocr_lang=ocr_lang)
     payload = result.as_dict()
     payload["root"] = str(target)
+    payload["ocr_lang"] = ocr_lang
     _last_result = payload
     return payload
 
@@ -246,6 +260,50 @@ def find_similar(image_path: str, max_results: int = 10) -> dict:
     return {
         "model": clip.model_tag(),
         "reference": str(ref),
+        "count": len(out),
+        "results": out,
+    }
+
+
+@mcp.tool()
+def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) -> dict:
+    """Find indexed images whose dominant color matches `hex_color`.
+
+    Useful for "find the screenshot with the red error banner" or "show me the
+    screenshots from that dark-themed app" — search vectors only let you do this
+    via semantic phrases, but color matches the literal pixels.
+
+    Args:
+        hex_color: target color as `#RRGGBB` (the `#` is optional).
+        tolerance: per-channel slack, 0-255. 30 is a good "same-ish color"
+            default; tighten to ~10 for exact matches, widen to ~60 for "any
+            shade of blue".
+        max_results: cap on returned rows.
+    """
+    try:
+        target = colors.parse_hex(hex_color)
+    except ValueError as exc:
+        return {"error": str(exc), "results": [], "count": 0}
+
+    tolerance = max(0, min(255, int(tolerance)))
+    conn = _get_conn()
+    rows = store.search_by_color(conn, target, max_results=max_results, tolerance=tolerance)
+    out = []
+    for row, dist in rows:
+        r, g, b = colors.unpack_rgb(int(row["dominant_rgb"]))
+        out.append(
+            {
+                "path": row["path"],
+                "dominant_rgb": f"#{int(row['dominant_rgb']):06X}",
+                "rgb": [r, g, b],
+                "distance": int(dist),
+                "mtime": float(row["mtime"]),
+            }
+        )
+    return {
+        "query": hex_color,
+        "target_rgb": [colors.unpack_rgb(target)[0], *colors.unpack_rgb(target)[1:]],
+        "tolerance": tolerance,
         "count": len(out),
         "results": out,
     }

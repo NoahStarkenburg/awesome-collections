@@ -14,13 +14,14 @@ from pathlib import Path
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS images (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    path         TEXT NOT NULL UNIQUE,
-    mtime        REAL NOT NULL,
-    size         INTEGER NOT NULL,
-    sha256       TEXT,
-    ocr_text     TEXT,
-    indexed_at   REAL NOT NULL
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    path          TEXT NOT NULL UNIQUE,
+    mtime         REAL NOT NULL,
+    size          INTEGER NOT NULL,
+    sha256        TEXT,
+    ocr_text      TEXT,
+    dominant_rgb  INTEGER,
+    indexed_at    REAL NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_images_mtime ON images(mtime);
@@ -70,8 +71,20 @@ def init_db(db_path: str | Path) -> sqlite3.Connection:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = connect(db_path)
     conn.executescript(SCHEMA_SQL)
+    _ensure_columns(conn)
     conn.commit()
     return conn
+
+
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    """Idempotent migrations for columns added after v0.1.
+
+    SQLite has no `ALTER TABLE ADD COLUMN IF NOT EXISTS`, so check PRAGMA
+    table_info and add what's missing. Old DBs upgrade in place.
+    """
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
+    if "dominant_rgb" not in cols:
+        conn.execute("ALTER TABLE images ADD COLUMN dominant_rgb INTEGER")
 
 
 # -- image rows ----------------------------------------------------------------
@@ -85,26 +98,63 @@ def upsert_image(
     size: int,
     sha256: str | None = None,
     ocr_text: str | None = None,
+    dominant_rgb: int | None = None,
 ) -> int:
     """Insert or update an image row. Returns the row id."""
     now = time.time()
     cur = conn.execute(
         """
-        INSERT INTO images (path, mtime, size, sha256, ocr_text, indexed_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO images (path, mtime, size, sha256, ocr_text, dominant_rgb, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET
             mtime = excluded.mtime,
             size = excluded.size,
             sha256 = COALESCE(excluded.sha256, images.sha256),
             ocr_text = COALESCE(excluded.ocr_text, images.ocr_text),
+            dominant_rgb = COALESCE(excluded.dominant_rgb, images.dominant_rgb),
             indexed_at = excluded.indexed_at
         RETURNING id
         """,
-        (path, mtime, size, sha256, ocr_text, now),
+        (path, mtime, size, sha256, ocr_text, dominant_rgb, now),
     )
     row = cur.fetchone()
     conn.commit()
     return int(row["id"])
+
+
+def search_by_color(
+    conn: sqlite3.Connection,
+    target_rgb: int,
+    *,
+    max_results: int = 10,
+    tolerance: int = 30,
+) -> list[tuple[sqlite3.Row, int]]:
+    """Return images whose dominant color is within `tolerance` of `target_rgb`.
+
+    Distance is squared Euclidean in RGB. `tolerance` is the *channel* tolerance
+    a human would think in (0-255); we square it for the SQL comparison so the
+    user can say e.g. `tolerance=30` and get all colors within ~30 per channel.
+
+    Returns [(row, distance), ...] sorted by closest match.
+    """
+    from .colors import unpack_rgb
+
+    tr, tg, tb = unpack_rgb(target_rgb)
+    # Squared-channel threshold for early filter; final ordering uses the real
+    # squared Euclidean distance below.
+    sq_threshold = (tolerance * tolerance) * 3
+    rows = conn.execute("SELECT * FROM images WHERE dominant_rgb IS NOT NULL").fetchall()
+    candidates: list[tuple[sqlite3.Row, int]] = []
+    for row in rows:
+        rgb = int(row["dominant_rgb"])
+        r = (rgb >> 16) & 0xFF
+        g = (rgb >> 8) & 0xFF
+        b = rgb & 0xFF
+        d = (r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2
+        if d <= sq_threshold:
+            candidates.append((row, d))
+    candidates.sort(key=lambda kv: kv[1])
+    return candidates[:max_results]
 
 
 def get_by_path(conn: sqlite3.Connection, path: str) -> sqlite3.Row | None:
@@ -193,9 +243,33 @@ def nearest_neighbors(
     *,
     max_results: int = 10,
     since: float | None = None,
+    use_faiss: bool | None = None,
 ) -> list[tuple[sqlite3.Row, float]]:
-    """Cosine-similarity ranking. Loads all vectors into memory — fine for v1
-    (~thousands of images); revisit when the index grows past ~100k."""
+    """Cosine-similarity ranking with an optional FAISS fast path.
+
+    `use_faiss`:
+      - `None` (default): pick automatically — FAISS when the optional extra
+        is installed AND the corpus passes `faiss_search.FAISS_THRESHOLD`.
+      - `True`: force FAISS. Raises ImportError if the extra isn't installed.
+      - `False`: force the in-Python cosine path. Useful for tests / debugging.
+
+    Both paths return results in identical (row, score) shape.
+    """
+    from . import faiss_search
+
+    if use_faiss is None:
+        if faiss_search.is_available():
+            corpus_size = conn.execute(
+                "SELECT COUNT(*) AS c FROM embeddings WHERE model = ?",
+                (model,),
+            ).fetchone()["c"]
+            use_faiss = corpus_size >= faiss_search.FAISS_THRESHOLD
+        else:
+            use_faiss = False
+
+    if use_faiss:
+        return faiss_search.search(conn, query_vector, model, max_results=max_results, since=since)
+
     import math
 
     q = list(query_vector)
