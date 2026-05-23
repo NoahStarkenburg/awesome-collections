@@ -29,11 +29,13 @@ mcp = FastMCP(
     name="personal-timeline",
     instructions=(
         "Local activity timeline aggregator. Sources: browser history "
-        "(Chrome/Edge/Brave/Firefox), git commits, filesystem mtimes, "
+        "(Chrome/Edge/Brave/Firefox/Safari), VS Code workspaces, "
+        "git commits, filesystem mtimes, "
         "calendar (.ics). All local — no network. Call `list_sources()` "
         "first to see what's configured. Use `index_sources()` to populate "
         "the index, then `timeline_around()`, `what_changed_today()`, "
-        "`find_session()`, `summarize_workday()`, or `correlate()`."
+        "`find_session()`, `summarize_workday()`, `summarize_week()`, "
+        "or `correlate()`."
     ),
 )
 
@@ -290,22 +292,13 @@ def find_session(query: str, max_results: int = 20) -> dict:
     }
 
 
-@mcp.tool()
-def summarize_workday(date: str | None = None) -> dict:
-    """Aggregate report for one day: per-source counts, git commits, calendar
-    blocks, top edited files.
-
-    Args:
-        date: optional ISO date (`YYYY-MM-DD`); default today (UTC).
-    """
+def _summarize_day(conn, day) -> dict:
+    """Aggregate a single calendar day. Pulled out of `summarize_workday` so
+    `summarize_week` can call it seven times without duplicating logic."""
     import json
     from collections import Counter
     from datetime import datetime, timedelta
 
-    if date is None:
-        day = datetime.now(UTC).date()
-    else:
-        day = datetime.strptime(date, "%Y-%m-%d").date()
     start = int(datetime.combine(day, datetime.min.time(), tzinfo=UTC).timestamp())
     end = (
         int(
@@ -314,7 +307,7 @@ def summarize_workday(date: str | None = None) -> dict:
         - 1
     )
 
-    rows = store.events_in_range(_get_conn(), start_ts=start, end_ts=end, limit=10_000)
+    rows = store.events_in_range(conn, start_ts=start, end_ts=end, limit=10_000)
 
     by_source: Counter = Counter()
     commits: list[dict] = []
@@ -371,6 +364,81 @@ def summarize_workday(date: str | None = None) -> dict:
         "git_commits": commits,
         "calendar_blocks": calendar_blocks,
         "top_files": [{"path": p, "hits": n} for p, n in file_hits.most_common(10)],
+        "_file_hits": file_hits,  # internal — stripped before client return
+    }
+
+
+def _strip_internal(day_summary: dict) -> dict:
+    """Drop fields prefixed with `_` before returning to MCP clients."""
+    return {k: v for k, v in day_summary.items() if not k.startswith("_")}
+
+
+@mcp.tool()
+def summarize_workday(date: str | None = None) -> dict:
+    """Aggregate report for one day: per-source counts, git commits, calendar
+    blocks, top edited files.
+
+    Args:
+        date: optional ISO date (`YYYY-MM-DD`); default today (UTC).
+    """
+    from datetime import datetime
+
+    if date is None:
+        day = datetime.now(UTC).date()
+    else:
+        day = datetime.strptime(date, "%Y-%m-%d").date()
+    return _strip_internal(_summarize_day(_get_conn(), day))
+
+
+@mcp.tool()
+def summarize_week(week_start: str | None = None) -> dict:
+    """Aggregate a 7-day rollup with per-day breakdown.
+
+    Args:
+        week_start: optional ISO date (`YYYY-MM-DD`) of the first day to
+            include. Default is the Monday of the current UTC week.
+
+    Returns:
+        - `week_start` / `week_end`: ISO dates for the inclusive 7-day window.
+        - `days`: 7 per-day summaries (same shape as `summarize_workday`).
+        - `by_source`: rolled-up event counts across the week.
+        - `total_events`, `total_active_hours`.
+        - `top_files`: top 10 across the week.
+    """
+    from collections import Counter
+    from datetime import datetime, timedelta
+
+    if week_start is None:
+        today = datetime.now(UTC).date()
+        start_day = today - timedelta(days=today.weekday())  # Monday
+    else:
+        start_day = datetime.strptime(week_start, "%Y-%m-%d").date()
+
+    conn = _get_conn()
+    days_summary: list[dict] = []
+    by_source: Counter = Counter()
+    file_hits: Counter = Counter()
+    total_active_hours = 0.0
+
+    for offset in range(7):
+        day = start_day + timedelta(days=offset)
+        ds = _summarize_day(conn, day)
+        for source, count in ds["by_source"].items():
+            by_source[source] += count
+        file_hits.update(ds["_file_hits"])
+        if ds["active_hours"] is not None:
+            total_active_hours += ds["active_hours"]
+        days_summary.append(_strip_internal(ds))
+
+    week_end = start_day + timedelta(days=6)
+    return {
+        "week_start": str(start_day),
+        "week_end": str(week_end),
+        "by_source": dict(by_source),
+        "total_events": sum(by_source.values()),
+        "total_active_hours": round(total_active_hours, 1),
+        "top_files": [{"path": p, "hits": n} for p, n in file_hits.most_common(10)],
+        "days": days_summary,
     }
 
 
@@ -501,7 +569,7 @@ def _row_to_dict(row) -> dict:
 def _ingest_one(conn, source: str, opts: dict) -> dict:
     """Dispatch one source's options to its reader/ingestor."""
     from .sources import calendar as calsrc
-    from .sources import chrome, firefox
+    from .sources import chrome, firefox, safari, vscode
     from .sources import filesystem as fssrc
     from .sources import git as gitsrc
 
@@ -526,21 +594,53 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
                 ingested += 1
         return {"ingested": ingested, "ics_paths": ics_paths}
 
-    if source in ("chrome", "firefox"):
+    if source == "vscode":
+        flavors = opts.get("flavors") or ["code"]
+        state = store.get_source_state(conn, source)
+        since = state["last_event_ts"] if state and state.get("last_event_ts") else None
+        ingested = 0
+        high = since
+        dirs_seen: list[str] = []
+        for flavor in flavors:
+            for storage_dir in vscode.locate_storage_dirs(flavor):
+                dirs_seen.append(str(storage_dir))
+                for event in vscode.read_events(storage_dir, source_name=source, since_ts=since):
+                    store.upsert_event(conn, event)
+                    ingested += 1
+                    if high is None or event.ts > high:
+                        high = event.ts
+        if high is not None:
+            store.update_source_state(conn, source, last_event_ts=int(high))
+        return {"ingested": ingested, "storage_dirs": dirs_seen, "flavors": flavors}
+
+    if source in ("chrome", "firefox", "safari"):
         # Browser indexing needs a concrete History/places.sqlite path — either
         # explicit in config or auto-located.
         explicit = opts.get("history_db") or opts.get("places_db")
-        reader = chrome if source == "chrome" else firefox
+        if source == "chrome":
+            reader = chrome
+        elif source == "firefox":
+            reader = firefox
+        else:
+            reader = safari
         if explicit:
             path = Path(explicit).expanduser()
         else:
-            profile = chrome.locate_profile() if source == "chrome" else firefox.locate_profile()
+            if source == "chrome":
+                profile = chrome.locate_profile()
+                db_name = "History"
+            elif source == "firefox":
+                profile = firefox.locate_profile()
+                db_name = "places.sqlite"
+            else:
+                profile = safari.locate_profile()
+                db_name = "History.db"
             if profile is None:
                 return {
                     "ingested": 0,
                     "note": "profile not located — set [sources.<name>].profile_dir",
                 }
-            path = profile / ("History" if source == "chrome" else "places.sqlite")
+            path = profile / db_name
         if not path.is_file():
             return {"ingested": 0, "note": f"DB not found at {path}"}
         state = store.get_source_state(conn, source)
