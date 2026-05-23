@@ -174,6 +174,52 @@ def _read_package_lock(path: Path) -> dict | None:
     return {"path": path.name, "ecosystem": "npm-lock", "dependencies": deps}
 
 
+def _read_maven_pom(path: Path) -> dict | None:
+    """Parse a Maven `pom.xml`.
+
+    Reads top-level `<dependencies><dependency>` entries. Dependency key
+    is `groupId:artifactId`, value is `version`. Maven uses a `dependencyManagement`
+    section + parent inheritance for actual version resolution, but for
+    upgrade-impact analysis we only care about the versions actually
+    written in this pom — `<dependency>` entries without a `<version>`
+    child are silently skipped because we can't pin them without resolving
+    the parent chain (out of scope for v1).
+
+    The Maven POM namespace (`http://maven.apache.org/POM/4.0.0`) is
+    handled by stripping the `{ns}` prefix off element tags.
+    """
+    try:
+        from xml.etree import ElementTree as ET  # noqa: N814
+    except ImportError:  # pragma: no cover - stdlib
+        return None
+    try:
+        tree = ET.parse(path)
+    except (OSError, ET.ParseError):
+        return None
+    root = tree.getroot()
+    deps: dict[str, str] = {}
+    for dep in root.iter():
+        # Strip namespace: `{http://maven.apache.org/POM/4.0.0}dependency` -> `dependency`
+        tag = dep.tag.rsplit("}", 1)[-1]
+        if tag != "dependency":
+            continue
+        group_id = None
+        artifact_id = None
+        version = None
+        for child in dep:
+            child_tag = child.tag.rsplit("}", 1)[-1]
+            if child_tag == "groupId":
+                group_id = (child.text or "").strip()
+            elif child_tag == "artifactId":
+                artifact_id = (child.text or "").strip()
+            elif child_tag == "version":
+                version = (child.text or "").strip()
+        if not group_id or not artifact_id or not version:
+            continue
+        deps[f"{group_id}:{artifact_id}"] = version
+    return {"path": path.name, "ecosystem": "maven", "dependencies": deps}
+
+
 def _read_gemfile(path: Path) -> dict | None:
     """Parse a Ruby `Gemfile`.
 
@@ -287,6 +333,7 @@ READERS = {
     "composer.json": _read_composer,
     "go.mod": _read_gomod,
     "Gemfile": _read_gemfile,
+    "pom.xml": _read_maven_pom,
 }
 
 
