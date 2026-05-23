@@ -138,6 +138,121 @@ def _read_cargo(path: Path) -> dict | None:
     return {"path": path.name, "ecosystem": "cargo", "dependencies": deps}
 
 
+def _read_package_lock(path: Path) -> dict | None:
+    """Parse an npm `package-lock.json` (v2/v3 schema).
+
+    Yields exact installed versions from the `packages` map (not the
+    semver ranges in `dependencies` / `devDependencies` of package.json).
+    Use this when you need to know what's actually in `node_modules`,
+    which is what upgrade-impact analysis really wants.
+
+    Keys in the `packages` dict are like `node_modules/react` for top-
+    level deps and `node_modules/<a>/node_modules/<b>` for nested ones.
+    The last `node_modules/` segment names the package; if the same
+    package appears at multiple depths with different versions, the
+    last one wins (matching how Node resolves at runtime).
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    packages = data.get("packages") or {}
+    if not isinstance(packages, dict):
+        return {"path": path.name, "ecosystem": "npm-lock", "dependencies": {}}
+    deps: dict[str, str] = {}
+    for key, entry in packages.items():
+        if not isinstance(key, str) or not isinstance(entry, dict):
+            continue
+        if "node_modules/" not in key:
+            continue
+        name = key.rsplit("node_modules/", 1)[-1]
+        if not name:
+            continue
+        version = entry.get("version")
+        if isinstance(version, str) and version:
+            deps[name] = version
+    return {"path": path.name, "ecosystem": "npm-lock", "dependencies": deps}
+
+
+def _read_gemfile(path: Path) -> dict | None:
+    """Parse a Ruby `Gemfile`.
+
+    Pulls `gem 'name'[, 'version']` lines. The `ruby` runtime directive
+    is dropped (it constrains the interpreter, not a package). Comments
+    (`#`-prefixed) are skipped. Version is the first quoted argument
+    after the gem name; if absent, defaults to an empty string so
+    callers can still see which gems are listed.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    deps: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line.startswith("gem"):
+            continue
+        # Match `gem 'name'` or `gem "name"` followed by optional comma+version.
+        m = re.match(
+            r'^gem\s+[\'"]([A-Za-z0-9_./-]+)[\'"]' r'(?:\s*,\s*[\'"]([^\'"]+)[\'"])?',
+            line,
+        )
+        if not m:
+            continue
+        name = m.group(1)
+        version = m.group(2) or ""
+        deps[name] = version
+    return {"path": path.name, "ecosystem": "rubygems", "dependencies": deps}
+
+
+def _read_gomod(path: Path) -> dict | None:
+    """Parse a Go `go.mod` file.
+
+    Pulls dependencies from `require` blocks (both the parenthesized
+    block form and single-line `require X v0.0.0` form). Lines marked
+    `// indirect` are excluded — those aren't direct dependencies and
+    bumping them via upgrade-impact would be misleading.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    deps: dict[str, str] = {}
+
+    def _absorb(line: str) -> None:
+        # Strip comments after `//`.
+        if "//" in line and "indirect" in line.split("//", 1)[1]:
+            return
+        body = line.split("//", 1)[0].strip()
+        if not body:
+            return
+        parts = body.split()
+        if len(parts) < 2:
+            return
+        module, version = parts[0], parts[1]
+        deps[module] = version
+
+    # Multi-line `require (` block.
+    for block_match in re.finditer(r"^require\s*\(\s*\n((?:.|\n)*?)^\)", text, re.M):
+        for raw_line in block_match.group(1).splitlines():
+            _absorb(raw_line)
+
+    # Single-line `require <module> <version>`.
+    for line in text.splitlines():
+        m = re.match(r"^\s*require\s+(\S+)\s+(\S+)(?:\s*//.*)?$", line)
+        if m:
+            mod = m.group(1)
+            # Skip when it's the block opener.
+            if mod == "(":
+                continue
+            ver = m.group(2)
+            if "//" in line and "indirect" in line.split("//", 1)[1]:
+                continue
+            deps[mod] = ver
+
+    return {"path": path.name, "ecosystem": "gomod", "dependencies": deps}
+
+
 def _read_composer(path: Path) -> dict | None:
     """Parse a PHP `composer.json`.
 
@@ -166,9 +281,12 @@ def _read_composer(path: Path) -> dict | None:
 
 READERS = {
     "package.json": _read_npm,
+    "package-lock.json": _read_package_lock,
     "pyproject.toml": _read_pyproject,
     "Cargo.toml": _read_cargo,
     "composer.json": _read_composer,
+    "go.mod": _read_gomod,
+    "Gemfile": _read_gemfile,
 }
 
 
@@ -188,6 +306,15 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Detect package manifests + dependency versions.")
     p.add_argument("path", nargs="?", default=".", help="repo root (default: cwd)")
     p.add_argument("--package", help="filter output to one dependency by name")
+    p.add_argument(
+        "--check-only",
+        action="store_true",
+        help=(
+            "Skip the dependency listing — just print one ecosystem name per line "
+            "(sorted, deduplicated). Useful as a precheck before invoking "
+            "fetch_release_notes. Exit code: 0 if any ecosystem found, 1 if none."
+        ),
+    )
     args = p.parse_args(argv)
 
     root = Path(args.path).resolve()
@@ -196,6 +323,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     manifests = detect(root)
+
+    if args.check_only:
+        ecosystems = sorted({m["ecosystem"] for m in manifests})
+        for eco in ecosystems:
+            print(eco)
+        return 0 if ecosystems else 1
+
     if args.package:
         for m in manifests:
             m["dependencies"] = {k: v for k, v in m["dependencies"].items() if k == args.package}

@@ -188,6 +188,93 @@ def fetch_pypi_metadata(package: str) -> dict:
     return http_get_json(f"https://pypi.org/pypi/{package}/json")
 
 
+def fetch_rubygems_metadata(package: str) -> dict:
+    """Fetch gem metadata + version list from rubygems.org.
+
+    Combines two endpoints into one dict so the dispatch path in
+    `fetch_release_notes` only needs one call:
+      - /api/v1/gems/<name>.json  -> source_code_uri, homepage
+      - /api/v1/versions/<name>.json -> [{number, prerelease, ...}, ...]
+    """
+    gem = http_get_json(f"https://rubygems.org/api/v1/gems/{package}.json")
+    versions = http_get_json(f"https://rubygems.org/api/v1/versions/{package}.json")
+    return {"gem": gem, "versions": versions}
+
+
+def parse_repo_url_rubygems(pkg_data: dict) -> str | None:
+    """Extract canonical github URL from a rubygems gem payload.
+
+    Prefers `source_code_uri`; falls back to `homepage_uri` then `bug_tracker_uri`.
+    """
+    gem = pkg_data.get("gem") or {}
+    candidates = [
+        gem.get("source_code_uri"),
+        gem.get("homepage_uri"),
+        gem.get("bug_tracker_uri"),
+    ]
+    for url in candidates:
+        if not isinstance(url, str):
+            continue
+        m = re.search(r"github\.com[:/]([^/]+)/([^/.\s]+)", url)
+        if m:
+            return f"https://github.com/{m.group(1)}/{m.group(2)}"
+    return None
+
+
+def list_rubygems_versions(pkg_data: dict) -> list[str]:
+    """Pull version `number` strings from a rubygems payload. Prerelease tags
+    are kept so `in_range` can still skip them via the standard prerelease
+    filter."""
+    versions = pkg_data.get("versions") or []
+    out: list[str] = []
+    for entry in versions:
+        if not isinstance(entry, dict):
+            continue
+        number = entry.get("number")
+        if isinstance(number, str) and number:
+            out.append(number)
+    return out
+
+
+def _gomod_escape(module: str) -> str:
+    """Apply the Go module-proxy escape: capital letters become `!<lower>`.
+
+    Spec: https://go.dev/ref/mod#goproxy-protocol
+    """
+    out: list[str] = []
+    for ch in module:
+        if ch.isupper():
+            out.append("!" + ch.lower())
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def fetch_gomod_versions(module: str) -> list[str]:
+    """Fetch the version list from the Go module proxy.
+
+    https://proxy.golang.org/<module>/@v/list returns one version per line.
+    Module paths are case-sensitive but `proxy.golang.org` lower-cases the
+    URL — passing the canonical Go-style path (e.g. `github.com/foo/Bar`)
+    works because the proxy expects `!` escapes for uppercase, which we
+    encode with `_gomod_escape`.
+    """
+    escaped = _gomod_escape(module)
+    text = http_get_text(f"https://proxy.golang.org/{escaped}/@v/list")
+    return [line.strip().lstrip("v") for line in text.splitlines() if line.strip()]
+
+
+def parse_repo_url_gomod(module: str) -> str | None:
+    """Best-effort: a Go module path of the form `github.com/<owner>/<repo>`
+    *is* the github URL minus the protocol. Returns None for non-github
+    paths (gopkg.in, golang.org/x/, custom domains) — those need ad-hoc
+    handling we don't tackle in v1."""
+    m = re.match(r"^github\.com/([^/]+)/([^/]+)", module)
+    if not m:
+        return None
+    return f"https://github.com/{m.group(1)}/{m.group(2)}"
+
+
 def fetch_packagist_metadata(package: str) -> dict:
     """Fetch package metadata from Packagist (PHP's registry).
 
@@ -330,6 +417,14 @@ def fetch_release_notes(
         meta = fetch_packagist_metadata(package)
         all_versions = list_packagist_versions(meta, package)
         repo_url = parse_repo_url_packagist(meta, package)
+    elif ecosystem == "gomod":
+        all_versions = fetch_gomod_versions(package)
+        repo_url = parse_repo_url_gomod(package)
+        meta = {"module": package}
+    elif ecosystem == "rubygems":
+        meta = fetch_rubygems_metadata(package)
+        all_versions = list_rubygems_versions(meta)
+        repo_url = parse_repo_url_rubygems(meta)
     else:
         raise NotImplementedError(f"ecosystem={ecosystem!r} not supported")
 
@@ -365,7 +460,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--ecosystem",
         default="npm",
-        choices=["npm", "pypi", "cargo", "composer"],
+        choices=["npm", "pypi", "cargo", "composer", "gomod", "rubygems"],
         help="package registry to query",
     )
     p.add_argument("--no-cache", action="store_true", help="bypass disk cache for this run")

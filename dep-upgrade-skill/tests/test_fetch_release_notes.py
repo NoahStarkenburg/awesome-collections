@@ -144,7 +144,7 @@ def test_fetch_release_notes_pypi(offline):
 
 def test_fetch_release_notes_unsupported_ecosystem():
     with pytest.raises(NotImplementedError):
-        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "rubygems")
+        frn.fetch_release_notes("anything", "1.0.0", "2.0.0", "maven")
 
 
 # -- crates.io / Cargo ---------------------------------------------------------
@@ -206,6 +206,127 @@ def test_fetch_release_notes_composer(offline):
     assert result["repo_url"] == "https://github.com/Seldaek/monolog"
     # 3.6.0-RC1 prerelease excluded; 3.3.1 lo-exclusive excluded.
     assert result["versions"] == ["3.4.0", "3.5.0"]
+
+
+# -- Go module proxy -----------------------------------------------------------
+
+
+def test_gomod_escape_lowercases_uppercase():
+    """The Go module proxy expects capital letters as `!<lower>`."""
+    assert frn._gomod_escape("github.com/Foo/Bar") == "github.com/!foo/!bar"
+    assert frn._gomod_escape("github.com/foo/bar") == "github.com/foo/bar"
+
+
+def test_parse_repo_url_gomod_github():
+    assert frn.parse_repo_url_gomod("github.com/spf13/cobra") == "https://github.com/spf13/cobra"
+
+
+def test_parse_repo_url_gomod_non_github_returns_none():
+    assert frn.parse_repo_url_gomod("gopkg.in/yaml.v3") is None
+    assert frn.parse_repo_url_gomod("golang.org/x/tools") is None
+
+
+def test_fetch_release_notes_gomod(monkeypatch):
+    """End-to-end through the gomod path with proxy responses mocked."""
+    from urllib.error import URLError
+
+    proxy_response = "v1.0.0\nv1.1.0\nv1.2.0\nv2.0.0-beta.1\n"
+
+    def fake_text(url, timeout=15):
+        if "proxy.golang.org/github.com/foo/bar/@v/list" in url:
+            return proxy_response
+        # find_changelog_text catches URLError and falls through to the next
+        # candidate — use it (not FileNotFoundError) so the changelog probe
+        # exits gracefully.
+        raise URLError("not found")
+
+    def fake_json(url, timeout=15):
+        if "api.github.com" in url and "releases" in url:
+            return []
+        raise AssertionError(f"unexpected JSON GET: {url}")
+
+    monkeypatch.setattr(frn, "http_get_text", fake_text)
+    monkeypatch.setattr(frn, "http_get_json", fake_json)
+
+    result = frn.fetch_release_notes("github.com/foo/bar", "1.0.0", "1.2.0", "gomod")
+    assert result["ecosystem"] == "gomod"
+    assert result["repo_url"] == "https://github.com/foo/bar"
+    # 1.0.0 is lo-exclusive; 2.0.0-beta.1 is prerelease.
+    assert result["versions"] == ["1.1.0", "1.2.0"]
+
+
+# -- rubygems ------------------------------------------------------------------
+
+
+def test_parse_repo_url_rubygems_prefers_source_code_uri():
+    meta = {
+        "gem": {
+            "source_code_uri": "https://github.com/rails/rails",
+            "homepage_uri": "https://rubyonrails.org",
+        }
+    }
+    assert frn.parse_repo_url_rubygems(meta) == "https://github.com/rails/rails"
+
+
+def test_parse_repo_url_rubygems_falls_back_to_homepage():
+    meta = {"gem": {"homepage_uri": "https://github.com/foo/bar"}}
+    assert frn.parse_repo_url_rubygems(meta) == "https://github.com/foo/bar"
+
+
+def test_parse_repo_url_rubygems_returns_none_when_no_github():
+    meta = {"gem": {"homepage_uri": "https://gitlab.com/foo/bar"}}
+    assert frn.parse_repo_url_rubygems(meta) is None
+
+
+def test_list_rubygems_versions_keeps_prereleases():
+    """Stability filtering happens via in_range; the lister just surfaces
+    every `number` from the payload."""
+    meta = {
+        "versions": [
+            {"number": "7.1.0"},
+            {"number": "7.1.0.rc1"},
+            {"number": "7.0.4"},
+        ]
+    }
+    assert frn.list_rubygems_versions(meta) == ["7.1.0", "7.1.0.rc1", "7.0.4"]
+
+
+def test_fetch_release_notes_rubygems(monkeypatch):
+    """End-to-end through the rubygems path with both endpoints mocked."""
+    from urllib.error import URLError
+
+    gem = {
+        "name": "rails",
+        "source_code_uri": "https://github.com/rails/rails",
+        "homepage_uri": "https://rubyonrails.org",
+    }
+    versions = [
+        {"number": "7.1.0"},
+        {"number": "7.1.0.rc1"},
+        {"number": "7.0.5"},
+        {"number": "7.0.4"},
+    ]
+
+    def fake_json(url, timeout=15):
+        if "rubygems.org/api/v1/gems/rails.json" in url:
+            return gem
+        if "rubygems.org/api/v1/versions/rails.json" in url:
+            return versions
+        if "api.github.com" in url and "releases" in url:
+            return []
+        raise AssertionError(f"unexpected JSON GET: {url}")
+
+    def fake_text(url, timeout=15):
+        raise URLError("not found")
+
+    monkeypatch.setattr(frn, "http_get_json", fake_json)
+    monkeypatch.setattr(frn, "http_get_text", fake_text)
+
+    result = frn.fetch_release_notes("rails", "7.0.4", "7.1.0", "rubygems")
+    assert result["ecosystem"] == "rubygems"
+    assert result["repo_url"] == "https://github.com/rails/rails"
+    # 7.0.4 lo-exclusive; 7.1.0.rc1 prerelease.
+    assert result["versions"] == ["7.0.5", "7.1.0"]
 
 
 # -- disk cache -----------------------------------------------------------------
