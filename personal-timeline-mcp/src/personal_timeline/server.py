@@ -517,6 +517,59 @@ def export_events(
 
 
 @mcp.tool()
+def event_stats() -> dict:
+    """Index health snapshot: counts per source, time bounds, DB size.
+
+    Useful as a one-call sanity check before running heavier queries.
+    Cheaper than `list_sources` (no source-state join) and includes
+    the on-disk DB size so callers can spot a runaway index.
+
+    Returns:
+        - `total_events`: total row count across all sources.
+        - `by_source`: `{source: count}` for sources with at least one row.
+        - `oldest_ts` / `newest_ts`: timestamp bounds (None on an empty index).
+        - `oldest_iso` / `newest_iso`: same, formatted as ISO-8601 UTC.
+        - `db_path`: where the SQLite file lives.
+        - `db_size_bytes`: size on disk (sum of `.db` + `-wal` + `-shm`).
+    """
+    conn = _get_conn()
+    total = int(conn.execute("SELECT COUNT(*) AS c FROM events").fetchone()["c"])
+    by_source = {
+        row["source"]: int(row["c"])
+        for row in conn.execute(
+            "SELECT source, COUNT(*) AS c FROM events GROUP BY source ORDER BY c DESC"
+        )
+    }
+    bounds = conn.execute("SELECT MIN(ts) AS lo, MAX(ts) AS hi FROM events").fetchone()
+    oldest = None if bounds["lo"] is None else int(bounds["lo"])
+    newest = None if bounds["hi"] is None else int(bounds["hi"])
+
+    db_path = _db_path()
+    db_size = 0
+    for suffix in ("", "-wal", "-shm"):
+        candidate = db_path.with_name(db_path.name + suffix) if suffix else db_path
+        try:
+            db_size += candidate.stat().st_size
+        except OSError:
+            continue
+
+    return {
+        "db_path": str(db_path),
+        "db_size_bytes": int(db_size),
+        "total_events": total,
+        "by_source": by_source,
+        "oldest_ts": oldest,
+        "newest_ts": newest,
+        "oldest_iso": (
+            None if oldest is None else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(oldest))
+        ),
+        "newest_iso": (
+            None if newest is None else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(newest))
+        ),
+    }
+
+
+@mcp.tool()
 def delete_events_in_range(
     start: str,
     end: str,
