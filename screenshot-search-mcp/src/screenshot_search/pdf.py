@@ -1,6 +1,6 @@
 """PDF rasterization for the screenshot index.
 
-Treats each PDF page as a "screenshot" — renders to a PIL image so the
+Treats each PDF page as a "screenshot" - renders to a PIL image so the
 existing OCR + CLIP pipeline can process it without knowing it's a PDF.
 
 Optional dependency: install with `pip install screenshot-search-mcp[pdf]`
@@ -38,7 +38,7 @@ def render_pages(pdf_path: str | Path, *, dpi: int = 150) -> Iterator[tuple[int,
 
     `page_index` is 0-based to match other internal counters; callers should
     add 1 when surfacing to humans. `dpi` controls the rasterization density
-    — 150 is a good OCR/CLIP balance; bump to 300 for fine text.
+    - 150 is a good OCR/CLIP balance; bump to 300 for fine text.
 
     Raises ImportError if pypdfium2 isn't installed, FileNotFoundError if
     the file doesn't exist.

@@ -1,7 +1,7 @@
 """Firefox places.sqlite history reader.
 
 Firefox stores visit timestamps in `moz_historyvisits.visit_date` as
-**microseconds since 1970-01-01** (PRTime µs) — a different epoch from
+**microseconds since 1970-01-01** (PRTime µs) - a different epoch from
 Chromium's FILETIME. Same locking gotcha though: copy the DB to temp first.
 
 Public:
@@ -50,7 +50,7 @@ def locate_profile() -> Path | None:
         parser = configparser.ConfigParser()
         parser.read(ini)
         # The default profile is the section with Default=1, or fall back to
-        # whichever Profile section has the most recent atime — too fiddly for v1.
+        # whichever Profile section has the most recent atime - too fiddly for v1.
         for section in parser.sections():
             if parser[section].get("Default") == "1":
                 rel = parser[section].get("Path", "")

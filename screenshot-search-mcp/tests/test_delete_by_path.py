@@ -1,4 +1,4 @@
-"""Tests for `delete_by_path_prefix` — the privacy escape hatch."""
+"""Tests for `delete_by_path_prefix` - the privacy escape hatch."""
 
 from __future__ import annotations
 

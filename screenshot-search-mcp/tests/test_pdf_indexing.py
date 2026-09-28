@@ -34,7 +34,7 @@ def _make_fixture_pdf(path: Path, n_pages: int = 3) -> Path:
 def _skip_if_no_pypdfium2():
     """Hard-skip the whole module if the [pdf] extra isn't installed."""
     if not pdf.is_available():
-        pytest.skip("pypdfium2 not installed — install the [pdf] extra to run these tests.")
+        pytest.skip("pypdfium2 not installed - install the [pdf] extra to run these tests.")
 
 
 def test_render_pages_yields_one_image_per_page(tmp_path: Path):
@@ -100,7 +100,7 @@ def test_index_directory_mixes_pdfs_and_images(tmp_path: Path):
     conn = store.init_db(db_path)
     try:
         result = index.index_directory(conn, tmp_path, skip_ocr=True)
-        # 1 PNG + 1 PDF (containing 2 pages) — scanned counts files,
+        # 1 PNG + 1 PDF (containing 2 pages) - scanned counts files,
         # indexed counts rows (1 image + 2 PDF pages = 3 rows).
         assert result.scanned == 2
         assert result.indexed == 3

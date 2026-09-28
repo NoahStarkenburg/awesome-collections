@@ -61,7 +61,7 @@ def test_bootstrap_mentions_ocr_languages(tmp_path: Path):
 
 
 def test_empty_list_falls_back_to_eng():
-    """`tesseract_lang` should never return an empty string — Tesseract would
+    """`tesseract_lang` should never return an empty string - Tesseract would
     refuse the call."""
     cfg = config.Config(ocr_languages=[])
     assert cfg.tesseract_lang() == "eng"

@@ -7,7 +7,7 @@ An MCP server that aggregates your local activity into a single queryable timeli
 - Filesystem mtimes for configured directories
 - Calendar events (`.ics` files)
 
-All sources are **local-only** in v1 — no OAuth, no cloud upload. See
+All sources are **local-only** in v1 - no OAuth, no cloud upload. See
 [`PRIVACY.md`](PRIVACY.md) for exactly what's read and how to wipe the index.
 
 > "What was I doing last Tuesday at 3pm?"
@@ -16,7 +16,7 @@ All sources are **local-only** in v1 — no OAuth, no cloud upload. See
 
 ## Status
 
-**v0.1.0** — feature-complete for the v1 surface. All 4 sources read, all 8
+**v0.1.0** - feature-complete for the v1 surface. All 4 sources read, all 8
 MCP tools wired, 33 tests passing (browser readers, git reader, calendar
 parser, plus 9 FastMCP in-memory protocol tests covering every tool).
 Real-world Claude Desktop click-through still recommended before tagging.
@@ -25,7 +25,7 @@ Real-world Claude Desktop click-through still recommended before tagging.
 
 | Tool | What it does |
 | --- | --- |
-| `ping()` | Health check — confirms the server is reachable. |
+| `ping()` | Health check - confirms the server is reachable. |
 | `list_sources()` | Report which sources are configured + per-source state. |
 | `index_sources(force_full)` | Drive every enabled source through its ingestor. |
 | `timeline_around(timestamp, window, sources)` | Events near a moment. |
@@ -68,7 +68,7 @@ index, condensed for readability:
 ```
 
 Pair with `correlate(event_id=<one of the commits>)` to find the calendar
-block / browser tabs around that commit — that's the "what meeting prompted
+block / browser tabs around that commit - that's the "what meeting prompted
 this commit?" workflow.
 
 ## Install (development)
@@ -133,7 +133,7 @@ python -m pytest personal-timeline-mcp/tests/
 ```
 
 Tests for each source land alongside the source itself. None of the tests hit
-the user's real browser/git/filesystem state — they use fixture SQLite DBs,
+the user's real browser/git/filesystem state - they use fixture SQLite DBs,
 fixture git repos, and fixture `.ics` files under `tests/fixtures/`.
 
 ## License

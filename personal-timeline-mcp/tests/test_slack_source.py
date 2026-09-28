@@ -97,7 +97,7 @@ def test_since_ts_filters_older_messages(tmp_path: Path):
 def test_falls_back_to_user_id_when_users_json_missing(tmp_path: Path):
     export = tmp_path / "export"
     export.mkdir()
-    # No users.json — the reader has to surface the raw user id.
+    # No users.json - the reader has to surface the raw user id.
     (export / "general").mkdir()
     (export / "general" / "2026-05-15.json").write_text(
         json.dumps([{"type": "message", "ts": "100.0", "user": "U999", "text": "hi"}]),
@@ -120,7 +120,7 @@ def test_skips_malformed_daily_files(tmp_path: Path):
             },
         },
     )
-    # Drop a malformed file in the same channel — must not crash.
+    # Drop a malformed file in the same channel - must not crash.
     (export / "general" / "2026-05-16.json").write_text("{not json", encoding="utf-8")
     events = list(slack.read_events(export))
     assert [e.body for e in events] == ["valid"]
@@ -128,7 +128,7 @@ def test_skips_malformed_daily_files(tmp_path: Path):
 
 def test_ignores_non_daily_filenames(tmp_path: Path):
     """The export tool can drop README.md, canvas exports, etc. into channel
-    dirs. We only consume YYYY-MM-DD.json — everything else is left alone."""
+    dirs. We only consume YYYY-MM-DD.json - everything else is left alone."""
     export = tmp_path / "export"
     _make_export(
         export,

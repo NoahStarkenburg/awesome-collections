@@ -7,7 +7,7 @@ Drives the three helpers in the same order the SKILL.md orchestrator does:
 …against a tmp-path "repo" and a stubbed HTTP layer that returns fixture
 changelog text. No network. No real Tesseract / CLIP / git. Catches
 regressions where one helper's output shape drifts from the next helper's
-expected input shape — the kind of break unit tests can miss.
+expected input shape - the kind of break unit tests can miss.
 """
 
 from __future__ import annotations
@@ -135,7 +135,7 @@ def test_pipeline_handles_non_changelog_text(tmp_path: Path, monkeypatch):
 def test_pipeline_with_multi_ecosystem_repo(tmp_path: Path, offline):
     """A polyglot repo (npm + composer) still detects each manifest cleanly.
 
-    We don't run fetch for both — Packagist isn't stubbed — but we confirm
+    We don't run fetch for both - Packagist isn't stubbed - but we confirm
     detect_manifest's output is the right shape for downstream consumption.
     """
     (tmp_path / "package.json").write_text(
@@ -175,6 +175,6 @@ def test_pipeline_skips_yanked_versions(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(frn, "http_get_text", fake_text_404)
 
     fetched = frn.fetch_release_notes("serde", "1.0.193", "1.0.197", "cargo")
-    # 1.0.196 is yanked in the fixture — must not leak into the upgrade range.
+    # 1.0.196 is yanked in the fixture - must not leak into the upgrade range.
     assert "1.0.196" not in fetched["versions"]
     assert fetched["versions"] == ["1.0.194", "1.0.195", "1.0.197"]

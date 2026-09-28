@@ -51,7 +51,7 @@ def test_date_only_event_treated_as_midnight_utc(fixture_path: Path):
 
 
 def test_tzid_event_parses_with_floating_local(fixture_path: Path):
-    """We don't yet apply TZID — parsed as floating local treated as UTC.
+    """We don't yet apply TZID - parsed as floating local treated as UTC.
     Pins the v1 behavior so the choice is explicit."""
     events = list(cal.read_events(fixture_path))
     review = next(e for e in events if e.payload["uid"] == "evt3@example.com")

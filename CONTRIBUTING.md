@@ -112,7 +112,7 @@ fires on every tag of the form `<project>-v<X.Y.Z>` and does:
    up at `https://github.com/<owner>/awesome-collections/releases`.
 
 If the tag/pyproject versions don't match, the workflow fails before
-publishing anything — fix the mismatch and re-tag (delete the bad tag
+publishing anything - fix the mismatch and re-tag (delete the bad tag
 first: `git tag -d <tag> && git push --delete origin <tag>`).
 
 ### Manual re-release

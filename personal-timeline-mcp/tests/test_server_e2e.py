@@ -142,7 +142,7 @@ async def test_summarize_week_handles_empty_db(server):
     for day in payload["days"]:
         assert day["by_source"] == {}
         assert day["active_hours"] is None
-        # Internal `_file_hits` must be stripped — clients should only see the
+        # Internal `_file_hits` must be stripped - clients should only see the
         # summarized `top_files` list.
         assert "_file_hits" not in day
 
@@ -257,7 +257,7 @@ async def test_delete_events_in_range_rejects_inverted(server):
 
 @pytest.mark.asyncio
 async def test_delete_events_in_range_source_filter(server, tmp_path):
-    """Source filter scopes the wipe — git events vanish, chrome stays."""
+    """Source filter scopes the wipe - git events vanish, chrome stays."""
     import os
 
     from personal_timeline.store import Event, init_db, upsert_event

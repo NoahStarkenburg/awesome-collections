@@ -1,7 +1,7 @@
 """Dominant-color computation for images.
 
 `dominant_rgb(image_path)` returns the most common color (downsampled +
-quantized) as a packed 0xRRGGBB int — small enough to store in a SQLite
+quantized) as a packed 0xRRGGBB int - small enough to store in a SQLite
 INTEGER column without any new types. The packed-int form also makes
 in-SQL distance math easy.
 
@@ -27,7 +27,7 @@ _PALETTE_SIZE = 4
 def parse_hex(hex_color: str) -> int:
     """Parse `#RRGGBB` (or `RRGGBB`) into a packed 0xRRGGBB int.
 
-    Raises ValueError on bad input — callers should treat this as a 4xx-style
+    Raises ValueError on bad input - callers should treat this as a 4xx-style
     user error, not a 5xx.
     """
     s = hex_color.strip().lstrip("#")
@@ -48,7 +48,7 @@ def rgb_distance(a: int, b: int) -> int:
     """Squared Euclidean distance between two packed RGB ints.
 
     Squared rather than sqrt'd because we only ever compare against a
-    threshold — saves a sqrt per row in the hot path.
+    threshold - saves a sqrt per row in the hot path.
     """
     ar, ag, ab = unpack_rgb(a)
     br, bg, bb = unpack_rgb(b)
@@ -59,7 +59,7 @@ def dominant_rgb(image_path: str | Path) -> int | None:
     """Return the dominant color of `image_path` as a packed 0xRRGGBB int.
 
     Returns None if the file can't be opened (corrupt image, missing file,
-    unsupported format). Never raises — callers can safely call this in
+    unsupported format). Never raises - callers can safely call this in
     bulk during indexing.
     """
     try:

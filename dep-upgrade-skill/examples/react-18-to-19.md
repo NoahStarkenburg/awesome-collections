@@ -4,7 +4,7 @@ This is an illustrative walkthrough of the `upgrade-impact` skill running agains
 fictional React 18 codebase. The release notes and symbols are pulled from the **real**
 React `CHANGELOG.md` (verified by re-running `scripts/fetch_release_notes.py react --from
 18.2.0 --to 19.0.0`); the file paths and line numbers below are from a sample repo created
-to demonstrate output shape — yours will look different.
+to demonstrate output shape - yours will look different.
 
 ## Invocation
 
@@ -42,13 +42,13 @@ Source: CHANGELOG.md (facebook/react)
 
 Affected symbols and call sites:
 
-- `ReactDOM.render` — 2 hit(s)
-  - `src/index.js:7` — `ReactDOM.render(<App />, document.getElementById('root'));`
-  - `src/legacy-mount.js:14` — `ReactDOM.render(node, container);`
-- `ReactDOM.hydrate` — 1 hit(s)
-  - `src/ssr-entry.js:22` — `ReactDOM.hydrate(<App />, document.getElementById('root'));`
-- `defaultProps` — 1 hit(s)
-  - `src/components/Avatar.jsx:18` — `Avatar.defaultProps = { size: 'md' };`
+- `ReactDOM.render` - 2 hit(s)
+  - `src/index.js:7` - `ReactDOM.render(<App />, document.getElementById('root'));`
+  - `src/legacy-mount.js:14` - `ReactDOM.render(node, container);`
+- `ReactDOM.hydrate` - 1 hit(s)
+  - `src/ssr-entry.js:22` - `ReactDOM.hydrate(<App />, document.getElementById('root'));`
+- `defaultProps` - 1 hit(s)
+  - `src/components/Avatar.jsx:18` - `Avatar.defaultProps = { size: 'md' };`
 
 ## Symbols with no hits in this repo
 
@@ -68,7 +68,7 @@ Total: 3 file(s) need review across 1 change(s).
 
 - **Three files need to change** before bumping to React 19. Two `ReactDOM.render` call
   sites switch to `createRoot(...).render(...)`. The SSR entry switches to `hydrateRoot`.
-- **One `defaultProps` usage** on a function component — needs to move to JS default
+- **One `defaultProps` usage** on a function component - needs to move to JS default
   parameters.
 - The "no hits" list confirms several other breaking changes don't apply to this repo, so
   the reviewer can focus their attention.

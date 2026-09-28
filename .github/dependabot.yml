@@ -18,7 +18,7 @@ updates:
       - dependencies
       - github-actions
     groups:
-      # One grouped PR per week for routine action updates — cuts review noise.
+      # One grouped PR per week for routine action updates - cuts review noise.
       gh-actions:
         patterns:
           - "*"

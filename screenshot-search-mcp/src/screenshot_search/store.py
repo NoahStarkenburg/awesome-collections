@@ -324,7 +324,7 @@ def nearest_neighbors(
     """Cosine-similarity ranking with an optional FAISS fast path.
 
     `use_faiss`:
-      - `None` (default): pick automatically — FAISS when the optional extra
+      - `None` (default): pick automatically - FAISS when the optional extra
         is installed AND the corpus passes `faiss_search.FAISS_THRESHOLD`.
       - `True`: force FAISS. Raises ImportError if the extra isn't installed.
       - `False`: force the in-Python cosine path. Useful for tests / debugging.

@@ -10,7 +10,7 @@ Public:
     search(conn, query_vector, model, *, max_results=10, since=None)
         -> list[(sqlite3.Row, float)]
 
-The caller usually doesn't reach for this module directly — `store.nearest_neighbors`
+The caller usually doesn't reach for this module directly - `store.nearest_neighbors`
 delegates here automatically when FAISS is present and the corpus exceeds
 `FAISS_THRESHOLD`. Tests can also force the path via `use_faiss=True`.
 """
@@ -57,7 +57,7 @@ def search(
     since: float | None = None,
 ):
     """Run an inner-product cosine search via FAISS. Raises ImportError if the
-    optional extra isn't installed — callers should check `is_available()` or
+    optional extra isn't installed - callers should check `is_available()` or
     rely on `store.nearest_neighbors` to make the call.
     """
     try:

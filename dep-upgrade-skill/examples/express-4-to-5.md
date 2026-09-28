@@ -19,14 +19,14 @@ sample-repo file paths are illustrative.
 ```
 1. Detected manifest: package.json (npm), express ^4.18.0 → 5.0.0
 2. Fetched release notes: 13 versions (no CHANGELOG.md, used GitHub Releases instead)
-3. Extracted breaking changes: 0 dedicated sections — needs_review flagged
+3. Extracted breaking changes: 0 dedicated sections - needs_review flagged
 4. Surfacing raw release body…
 5. Report:
 ```
 
 ## Why the fallback fires
 
-Express formats its v5 release body as `### Major Changes in v5` — the trailing "in
+Express formats its v5 release body as `### Major Changes in v5` - the trailing "in
 v5" defeats the `^major\s+changes?$` heading detector by design (we don't want to
 match arbitrary headings that happen to start with "Major Changes"). Combined with
 the absence of a `CHANGELOG.md` file in the repo, no structured breaking-change
@@ -44,7 +44,7 @@ No structured breaking-change section was detected. Reason: Looks like a changel
 with inline breaking-change language (removed/deprecated/renamed/etc.) but no
 dedicated 'Breaking' heading. Surface raw text for human review.
 
-Raw release notes are pasted below — read them and let me know what to grep for.
+Raw release notes are pasted below - read them and let me know what to grep for.
 
 ---
 
@@ -73,7 +73,7 @@ For a complete list of breaking changes and API deprecations, see the
 
 ---
 
-Total: manual review pending — re-run with `--symbols path-to-regexp,urlencoded,extended` to grep for specific names.
+Total: manual review pending - re-run with `--symbols path-to-regexp,urlencoded,extended` to grep for specific names.
 ````
 
 ## What this told the user
@@ -101,7 +101,7 @@ src/middleware/parser.js:4  module.exports = bodyParser.urlencoded({ extended: t
 ```
 
 Two files use the v4 default `extended: true` for `urlencoded`. Under v5, the
-default flips to `false`, so explicit `extended: true` is now required — a real,
+default flips to `false`, so explicit `extended: true` is now required - a real,
 silent breaking change that the manual grep caught. The user makes the change, and
 the upgrade is unblocked.
 

@@ -4,7 +4,7 @@ A Claude Code skill that tells you **which lines in your repo break** when you b
 dependency.
 
 Most upgrade tools just summarize release notes. This one cross-references the breaking
-changes against your actual code so you know what to fix and where — grouped by breaking
+changes against your actual code so you know what to fix and where - grouped by breaking
 change, with `file_path:line_number` refs.
 
 ## What it does
@@ -14,7 +14,7 @@ Given a package name and a version range:
 1. **Detects your ecosystem** from `package.json` / `pyproject.toml` / `Cargo.toml`
 2. **Fetches release notes** between the two versions (npm registry, PyPI, with GitHub
    Releases as fallback). Responses are cached on disk for 1 hour.
-3. **Extracts breaking-change symbols** — renamed APIs, removed options, changed
+3. **Extracts breaking-change symbols** - renamed APIs, removed options, changed
    signatures. Backticks, dotted refs, ALL_CAPS, CamelCase, and `snake_case()` calls
    are all picked up.
 4. **Greps your repo** for usage of those symbols.
@@ -51,13 +51,13 @@ Found 1 breaking change(s) that affect this repo across 3 file(s).
 
 ## Breaking Changes (v19.0.0)
 
-- `ReactDOM.render` — 2 hit(s)
-  - src/index.js:7 — ReactDOM.render(<App />, document.getElementById('root'));
-  - src/legacy-mount.js:14 — ReactDOM.render(node, container);
-- `ReactDOM.hydrate` — 1 hit(s)
-  - src/ssr-entry.js:22 — ReactDOM.hydrate(<App />, document.getElementById('root'));
-- `defaultProps` — 1 hit(s)
-  - src/components/Avatar.jsx:18 — Avatar.defaultProps = { size: 'md' };
+- `ReactDOM.render` - 2 hit(s)
+  - src/index.js:7 - ReactDOM.render(<App />, document.getElementById('root'));
+  - src/legacy-mount.js:14 - ReactDOM.render(node, container);
+- `ReactDOM.hydrate` - 1 hit(s)
+  - src/ssr-entry.js:22 - ReactDOM.hydrate(<App />, document.getElementById('root'));
+- `defaultProps` - 1 hit(s)
+  - src/components/Avatar.jsx:18 - Avatar.defaultProps = { size: 'md' };
 
 Total: 3 file(s) need review across 1 change(s).
 ```
@@ -78,7 +78,7 @@ cp -r dep-upgrade-skill ~/.claude/skills/upgrade-impact
 Copy-Item -Recurse dep-upgrade-skill "$env:USERPROFILE\.claude\skills\upgrade-impact"
 ```
 
-Requires **Python 3.11+**. The helper scripts are stdlib-only — no `pip install`.
+Requires **Python 3.11+**. The helper scripts are stdlib-only - no `pip install`.
 
 For an unauthenticated GitHub Releases fallback you'll hit rate limits after ~60
 requests/hour. Set `GITHUB_TOKEN` (any token with `public_repo` read scope) to bump
@@ -104,16 +104,16 @@ Each script emits JSON to stdout. Pipe them together to build your own report.
 
 ## How it works under the hood
 
-- [`scripts/detect_manifest.py`](scripts/detect_manifest.py) — scans the repo root
+- [`scripts/detect_manifest.py`](scripts/detect_manifest.py) - scans the repo root
   for `package.json`, `pyproject.toml`, or `Cargo.toml` and reports the
   ecosystem + locked-or-declared versions. Stdlib only.
-- [`scripts/fetch_release_notes.py`](scripts/fetch_release_notes.py) — pulls release
+- [`scripts/fetch_release_notes.py`](scripts/fetch_release_notes.py) - pulls release
   notes from npm / PyPI with GitHub Releases as fallback. SHA256-keyed disk cache
   at `~/.cache/dep-upgrade-skill/` (1 hour TTL).
-- [`scripts/extract_breaking.py`](scripts/extract_breaking.py) — regex-based parser
+- [`scripts/extract_breaking.py`](scripts/extract_breaking.py) - regex-based parser
   for "Breaking changes" sections + heuristic symbol extractor (weighted regex
   passes with a stopword set).
-- [`SKILL.md`](SKILL.md) — the orchestration prompt Claude reads when the skill
+- [`SKILL.md`](SKILL.md) - the orchestration prompt Claude reads when the skill
   triggers. Glues the scripts together via Read/Bash/Grep.
 
 ## Tests

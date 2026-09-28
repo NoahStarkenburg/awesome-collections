@@ -1,6 +1,6 @@
 """Slack workspace-export reader.
 
-Reads a *Slack export* directory — the layout you get from Slack's Settings ->
+Reads a *Slack export* directory - the layout you get from Slack's Settings ->
 Workspace Settings -> Export tool. Layout:
 
     <export-root>/
@@ -12,7 +12,7 @@ Workspace Settings -> Export tool. Layout:
         ...
 
 Each message becomes one `Event`. Non-message records (joins, channel renames,
-pinned-message events) are skipped — they aren't useful for "what was I
+pinned-message events) are skipped - they aren't useful for "what was I
 discussing when I made this commit" correlation.
 
 Public:
@@ -40,7 +40,7 @@ def _load_user_map(export_root: Path) -> dict[str, str]:
     """Build a `user_id -> display name` map from `users.json` if present.
 
     Falls back to using the raw user id when the file is missing or a user
-    isn't listed — Slack exports occasionally omit deactivated members.
+    isn't listed - Slack exports occasionally omit deactivated members.
     """
     users_json = export_root / "users.json"
     if not users_json.is_file():
@@ -81,7 +81,7 @@ def read_events(
 ) -> Iterator[Event]:
     """Yield `Event` rows from a Slack export tree.
 
-    `since_ts` (unix seconds) filters out older messages — Slack ts strings
+    `since_ts` (unix seconds) filters out older messages - Slack ts strings
     are `"<unix-seconds>.<microseconds>"`, easy to compare numerically.
     """
     root = Path(export_dir).expanduser()

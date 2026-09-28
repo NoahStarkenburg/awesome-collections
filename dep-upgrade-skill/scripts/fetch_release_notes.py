@@ -255,7 +255,7 @@ def fetch_gomod_versions(module: str) -> list[str]:
 
     https://proxy.golang.org/<module>/@v/list returns one version per line.
     Module paths are case-sensitive but `proxy.golang.org` lower-cases the
-    URL — passing the canonical Go-style path (e.g. `github.com/foo/Bar`)
+    URL - passing the canonical Go-style path (e.g. `github.com/foo/Bar`)
     works because the proxy expects `!` escapes for uppercase, which we
     encode with `_gomod_escape`.
     """
@@ -267,7 +267,7 @@ def fetch_gomod_versions(module: str) -> list[str]:
 def parse_repo_url_gomod(module: str) -> str | None:
     """Best-effort: a Go module path of the form `github.com/<owner>/<repo>`
     *is* the github URL minus the protocol. Returns None for non-github
-    paths (gopkg.in, golang.org/x/, custom domains) — those need ad-hoc
+    paths (gopkg.in, golang.org/x/, custom domains) - those need ad-hoc
     handling we don't tackle in v1."""
     m = re.match(r"^github\.com/([^/]+)/([^/]+)", module)
     if not m:
@@ -278,7 +278,7 @@ def parse_repo_url_gomod(module: str) -> str | None:
 def fetch_packagist_metadata(package: str) -> dict:
     """Fetch package metadata from Packagist (PHP's registry).
 
-    Packagist expects the canonical `vendor/package` shape — `monolog/monolog`,
+    Packagist expects the canonical `vendor/package` shape - `monolog/monolog`,
     `symfony/console`. The v2 metadata endpoint returns a `packages` map
     keyed by name, with a list of per-version records.
     """
@@ -288,7 +288,7 @@ def fetch_packagist_metadata(package: str) -> dict:
 def parse_repo_url_packagist(pkg_data: dict, package: str) -> str | None:
     """Extract canonical github URL from a Packagist v2 payload.
 
-    The metadata returns a list of per-version entries — they should all
+    The metadata returns a list of per-version entries - they should all
     agree on `source.url`, so we pick the first one.
     """
     packages = pkg_data.get("packages") or {}
@@ -321,7 +321,7 @@ def list_packagist_versions(pkg_data: dict, package: str) -> list[str]:
 def fetch_crates_metadata(package: str) -> dict:
     """Fetch crate metadata from crates.io's v1 API.
 
-    Crates.io requires a meaningful User-Agent and rejects empty ones — the
+    Crates.io requires a meaningful User-Agent and rejects empty ones - the
     project-wide USER_AGENT already passes that bar.
     """
     return http_get_json(f"https://crates.io/api/v1/crates/{package}")

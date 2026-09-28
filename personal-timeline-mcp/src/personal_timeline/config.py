@@ -27,7 +27,7 @@ Shape:
     enabled = true
     ics_paths = ["~/.calendar/personal.ics"]
 
-When the file is missing, `load()` returns Config.defaults() — no error. Use
+When the file is missing, `load()` returns Config.defaults() - no error. Use
 `bootstrap()` to write a starter on first run.
 """
 
@@ -168,7 +168,7 @@ paths = []
 
 
 def bootstrap(path: str | Path | None = None) -> Path:
-    """Write a starter config. Idempotent — won't overwrite an existing file."""
+    """Write a starter config. Idempotent - won't overwrite an existing file."""
     target = Path(path) if path is not None else DEFAULT_CONFIG_PATH
     if target.is_file():
         return target

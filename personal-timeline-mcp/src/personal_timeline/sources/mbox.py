@@ -1,10 +1,10 @@
 """mbox (Unix mail archive) reader.
 
 Reads any `.mbox` file via the stdlib `mailbox` module and emits one Event
-per message. Useful for indexing personal email exports — Gmail Takeout,
+per message. Useful for indexing personal email exports - Gmail Takeout,
 Apple Mail export, mutt archives, etc. all hand you .mbox files.
 
-We don't attempt to decode attachments or HTML bodies — the v1 use case is
+We don't attempt to decode attachments or HTML bodies - the v1 use case is
 "what was I emailing when I made this commit?", and subject+from+text is
 enough for FTS matching.
 
@@ -47,7 +47,7 @@ def _date_to_ts(date_header: str) -> int | None:
 
 
 def _plain_text_body(message: mailbox.mboxMessage) -> str:
-    """Pull the first text/plain part — never decode HTML.
+    """Pull the first text/plain part - never decode HTML.
 
     Multi-part messages are common; only the leaf parts have payloads. We
     walk and pick the first `text/plain` we see. If there isn't one, we
@@ -93,7 +93,7 @@ def read_events(
     """Yield `Event` rows from a `.mbox` file.
 
     `since_ts` (unix seconds) drops older messages. Messages without a
-    parseable Date header are skipped — without a timestamp they have no
+    parseable Date header are skipped - without a timestamp they have no
     place on the timeline.
     """
     path = Path(mbox_path).expanduser()

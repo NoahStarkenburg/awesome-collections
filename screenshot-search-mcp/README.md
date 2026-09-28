@@ -3,7 +3,7 @@
 An MCP server that indexes a folder of screenshots/images and exposes search by **text
 content** (OCR via Tesseract) and **visual content** (CLIP embeddings).
 
-Works with any MCP client — Claude Desktop, Cursor, Cline, Continue, Zed.
+Works with any MCP client - Claude Desktop, Cursor, Cline, Continue, Zed.
 
 > "Find the screenshot from 3 weeks ago with the auth error message."
 > "Show me screenshots of error dialogs."
@@ -11,7 +11,7 @@ Works with any MCP client — Claude Desktop, Cursor, Cline, Continue, Zed.
 
 ## Status
 
-**v0.1.0** — feature-complete for the v1 surface. All eight tools wired, SQLite
+**v0.1.0** - feature-complete for the v1 surface. All eight tools wired, SQLite
 index + FTS5 + CLIP embeddings + watchdog watcher all functional. 23 tests pass
 (17 store unit tests + 6 in-memory MCP protocol e2e tests). See
 [`examples/sample_run.md`](examples/sample_run.md) for what each tool returns
@@ -21,7 +21,7 @@ against a real screenshots folder.
 
 | Tool | What it does |
 | --- | --- |
-| `ping()` | Health check — confirms the server is reachable. |
+| `ping()` | Health check - confirms the server is reachable. |
 | `index_directory(path, recursive)` | Scan a folder and OCR-index new/changed images. |
 | `index_status()` | Report totals, last-indexed file, last run summary. |
 | `search_text(query, since, max_results)` | FTS5 search over OCR'd text. |
@@ -51,7 +51,7 @@ pip install -e ".[dev]"
 ```
 
 **Skip `[visual]` if you don't need `search_visual` / `find_similar`.** The
-server starts fine without it — those two tools return a graceful
+server starts fine without it - those two tools return a graceful
 `{"error": "open_clip_torch is required..."}` payload instead of crashing.
 
 ## System dependencies
@@ -69,7 +69,7 @@ The OCR pipeline shells out to the Tesseract binary via `pytesseract`. Install:
 | Arch | `sudo pacman -S tesseract tesseract-data-eng` | `tesseract --version` |
 
 **Expected version:** 5.0 or later. The output of `tesseract --version` should
-show `tesseract 5.x.y` and at least one language under `Available languages` —
+show `tesseract 5.x.y` and at least one language under `Available languages` -
 typically `eng` for English. Without a language pack, OCR returns empty strings.
 
 **Windows path note:** the UB-Mannheim installer registers Tesseract on `PATH`
@@ -91,7 +91,7 @@ Cached under `~/.cache/clip/`. The first call to `search_visual` may take
 
 GPU is **not required**. ViT-B/32 runs on CPU at roughly 30 images/second on a
 modern laptop. To enable CUDA, install a CUDA-matched PyTorch build before
-installing this package — see the [open_clip docs](https://github.com/mlfoundations/open_clip).
+installing this package - see the [open_clip docs](https://github.com/mlfoundations/open_clip).
 
 ## Run the server (development)
 
@@ -111,7 +111,7 @@ python -m screenshot_search.server
 
 ## Configure in Claude Desktop
 
-Edit `claude_desktop_config.json` (paths vary by OS — see the
+Edit `claude_desktop_config.json` (paths vary by OS - see the
 [Claude Desktop docs](https://modelcontextprotocol.io/quickstart/user)):
 
 ```json
@@ -153,7 +153,7 @@ python -m screenshot_search.watch ~/Pictures/Screenshots --debounce 2.0
 ```
 
 Performs an initial scan, then reindexes the parent directory of any image
-that's created or modified — debounced to avoid double-indexing files written
+that's created or modified - debounced to avoid double-indexing files written
 in two passes by screenshot tools.
 
 ## Tests
@@ -162,9 +162,9 @@ in two passes by screenshot tools.
 python -m pytest screenshot-search-mcp/tests/
 ```
 
-- **`test_store.py`** — 17 cases covering schema, upsert COALESCE, FTS5 trigger
+- **`test_store.py`** - 17 cases covering schema, upsert COALESCE, FTS5 trigger
   sync, embedding round-trip, nearest-neighbor cosine ranking, cascade-delete.
-- **`test_server_e2e.py`** — 6 cases using FastMCP's in-memory `Client` transport
+- **`test_server_e2e.py`** - 6 cases using FastMCP's in-memory `Client` transport
   to call every tool via the real MCP protocol path (list_tools + call_tool).
 
 CLIP runtime is intentionally not exercised in CI (the ~150 MB model isn't

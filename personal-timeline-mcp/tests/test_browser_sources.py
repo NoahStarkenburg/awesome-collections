@@ -148,6 +148,6 @@ def test_firefox_read_events_missing_file(tmp_path: Path):
 
 
 def test_locate_profile_does_not_raise():
-    # Real result depends on the test runner's machine — just confirm no crash.
+    # Real result depends on the test runner's machine - just confirm no crash.
     assert chrome.locate_profile() is None or isinstance(chrome.locate_profile(), Path)
     assert firefox.locate_profile() is None or isinstance(firefox.locate_profile(), Path)

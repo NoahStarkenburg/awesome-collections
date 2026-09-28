@@ -11,7 +11,7 @@ name: Release
 #   - verify project dir exists in the repo
 #   - if the project has a pyproject, build wheel + sdist with `python -m build`
 #     and verify the declared version matches the tag (no silent drift)
-#   - if it doesn't (dep-upgrade-skill — it's a Claude Code skill, not a wheel),
+#   - if it doesn't (dep-upgrade-skill - it's a Claude Code skill, not a wheel),
 #     pack the skill directory as a tarball instead
 #   - create the GitHub Release with auto-generated notes and attach the artifacts
 
@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: |
           if [[ ! -d "${{ steps.tag.outputs.project }}" ]]; then
-            echo "::error::Unknown project '${{ steps.tag.outputs.project }}' — no such directory at repo root"
+            echo "::error::Unknown project '${{ steps.tag.outputs.project }}' - no such directory at repo root"
             exit 1
           fi
 
@@ -98,7 +98,7 @@ jobs:
           tag_v = "${{ steps.tag.outputs.version }}"
           if declared != tag_v:
               print(f"::error::pyproject.toml version ({declared}) "
-                    f"!= tag version ({tag_v}) — bump the version and re-tag")
+                    f"!= tag version ({tag_v}) - bump the version and re-tag")
               sys.exit(1)
           print(f"version match: {declared}")
           PY
@@ -122,7 +122,7 @@ jobs:
           #
           # Distribution name (e.g. "screenshot-search-mcp") doesn't always
           # equal the import name (e.g. "screenshot_search"), so derive the
-          # import name from `[tool.hatch.build.targets.wheel].packages` —
+          # import name from `[tool.hatch.build.targets.wheel].packages` -
           # which is what hatch actually ships.
           python -m venv .smoke
           .smoke/bin/pip install --quiet ./dist/*.whl

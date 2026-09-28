@@ -1,8 +1,8 @@
 # Security Policy
 
 This repo contains three software projects, two of which are MCP servers that
-read local user data. Treat security issues — anything that could leak data,
-escalate privilege, or run arbitrary code — as **high priority**.
+read local user data. Treat security issues - anything that could leak data,
+escalate privilege, or run arbitrary code - as **high priority**.
 
 ## Reporting
 
@@ -15,7 +15,7 @@ escalate privilege, or run arbitrary code — as **high priority**.
 - A minimal repro (commands, sample input, or a stripped-down PoC)
 - The commit SHA you tested against
 
-You should hear back within **72 hours**. If you don't, please follow up —
+You should hear back within **72 hours**. If you don't, please follow up -
 the address is not perfectly monitored.
 
 ## What counts as a security issue
@@ -44,7 +44,7 @@ Per-project specifics:
   (the readers should only touch `urls`/`visits` for Chromium and
   `moz_places`/`moz_historyvisits` for Firefox).
 - Network calls from any source module. The v1 promise is "nothing leaves
-  your machine" — a regression there is a security issue.
+  your machine" - a regression there is a security issue.
 - Read access to file contents (only paths + mtime/size are supposed to be
   recorded for the `fs` source).
 
@@ -70,7 +70,7 @@ There's no bug bounty in v1.
 ## Out of scope
 
 - Vulnerabilities in third-party dependencies (FastMCP, Pillow,
-  pytesseract, open-clip-torch, etc.) — report those upstream. We track
+  pytesseract, open-clip-torch, etc.) - report those upstream. We track
   advisories and bump dependencies promptly.
 - Vulnerabilities that require an attacker to already control the user's
   machine. The threat model is "untrusted input to MCP tools / dep names",

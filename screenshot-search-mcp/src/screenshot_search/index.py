@@ -1,6 +1,6 @@
 """Directory walker + OCR indexing pipeline.
 
-Public entry: `index_directory(conn, root, recursive=True)` — walks the tree,
+Public entry: `index_directory(conn, root, recursive=True)` - walks the tree,
 dedupes by (path, mtime, size), runs OCR on new/changed images and on PDF
 pages (one row per page), upserts rows.
 """
@@ -148,7 +148,7 @@ def index_directory(
         conn: open SQLite connection from `store.init_db`.
         root: directory to scan.
         recursive: walk subdirectories.
-        skip_ocr: useful for tests + bulk metadata refresh — records the file
+        skip_ocr: useful for tests + bulk metadata refresh - records the file
             without running Tesseract.
         include_pdfs: rasterize and index each page of any PDFs found. Requires
             the `[pdf]` extra (pypdfium2). Silently no-op if it isn't installed.

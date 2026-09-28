@@ -50,7 +50,7 @@ Re-running on the same directory should report `skipped_unchanged == scanned`
   }
 ```
 
-`total_embeddings == 0` is expected — CLIP embeddings aren't populated by the
+`total_embeddings == 0` is expected - CLIP embeddings aren't populated by the
 OCR pass; they're populated on first `search_visual` / `find_similar` call (or
 by a future `embed_directory` tool, not yet built).
 
@@ -79,7 +79,7 @@ by a future `embed_directory` tool, not yet built).
   }
 ```
 
-`score` is BM25 — lower is better.
+`score` is BM25 - lower is better.
 
 ## 5. Visual search (CLIP)
 
@@ -96,7 +96,7 @@ by a future `embed_directory` tool, not yet built).
   }
 ```
 
-`score` here is cosine similarity — higher is better, capped at 1.0.
+`score` here is cosine similarity - higher is better, capped at 1.0.
 
 ## 6. Image-to-image
 
@@ -121,7 +121,7 @@ The reference image itself is filtered out of results.
 > Call: extract_text(image_path="C:\\Downloads\\one_off_screenshot.png")
 < {
     "path":   "C:\\Downloads\\one_off_screenshot.png",
-    "text":   "404 Not Found — the requested URL /api/v2 was not found on this server.",
+    "text":   "404 Not Found - the requested URL /api/v2 was not found on this server.",
     "length": 75
   }
 ```
@@ -163,4 +163,4 @@ metadata to confirm a hit:
 > get_metadata(<top hit>)           → confirm mtime / dimensions
 ```
 
-That's the v0.1 surface area — the full README has install + Tesseract setup.
+That's the v0.1 surface area - the full README has install + Tesseract setup.

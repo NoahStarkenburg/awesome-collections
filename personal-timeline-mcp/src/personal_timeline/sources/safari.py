@@ -3,7 +3,7 @@
 Reads `~/Library/Safari/History.db` (SQLite). Safari, like Chromium, locks the
 live DB while the browser is running, so we always copy to a temp file first.
 
-Safari visit timestamps are stored as **CFAbsoluteTime** — seconds since
+Safari visit timestamps are stored as **CFAbsoluteTime** - seconds since
 2001-01-01 00:00:00 UTC, the Cocoa/Mac reference date. We convert to unix
 epoch seconds before yielding.
 
@@ -39,7 +39,7 @@ def cocoa_seconds_to_unix_seconds(value: float | int) -> int:
 
 
 def locate_profile() -> Path | None:
-    """Return Safari's history directory if it exists. macOS only — other
+    """Return Safari's history directory if it exists. macOS only - other
     platforms always return None."""
     if sys.platform != "darwin":
         return None

@@ -17,21 +17,21 @@ description: |
 # upgrade-impact
 
 When this skill activates, the user wants to know **which lines in their repo break** for a
-specific dependency upgrade. Don't summarize release notes generically — cross-reference them
+specific dependency upgrade. Don't summarize release notes generically - cross-reference them
 against the user's code.
 
 ## Inputs to extract from the user's request
 
 1. **Package name** (e.g. `react`, `express`, `requests`)
-2. **From version** — current version. If user didn't say, run manifest detection (below)
+2. **From version** - current version. If user didn't say, run manifest detection (below)
    and read it from there.
-3. **To version** — target version. If user said "latest" or didn't specify, fetch the latest
+3. **To version** - target version. If user said "latest" or didn't specify, fetch the latest
    from the registry.
-4. **Repo path** — defaults to the current working directory.
+4. **Repo path** - defaults to the current working directory.
 
 If any of these are ambiguous, ask the user once before proceeding.
 
-## Step 1 — Manifest detection
+## Step 1 - Manifest detection
 
 Run `scripts/detect_manifest.py <repo-path> --package <name>`. The script scans for
 `package.json` (npm), `pyproject.toml` (pypi), and `Cargo.toml` (cargo) at the repo root
@@ -46,15 +46,15 @@ and emits JSON like:
 
 Use this output to:
 - **Pick the ecosystem** for `fetch_release_notes.py --ecosystem <npm|pypi>` (cargo is not
-  yet supported by the fetcher — fall back to "manual review" if Cargo is the only manifest).
+  yet supported by the fetcher - fall back to "manual review" if Cargo is the only manifest).
 - **Resolve `--from`** when the user didn't say. Strip semver-range prefixes (`^`, `~`, `>=`)
   to get a concrete version to pass to the fetcher.
-- **Disambiguate** when more than one manifest matches the package — ask the user which one.
+- **Disambiguate** when more than one manifest matches the package - ask the user which one.
 
 If `detect_manifest.py` exits 1 (no manifests found), tell the user the skill needs at least
 one of `package.json`, `pyproject.toml`, or `Cargo.toml` at the repo root, then stop.
 
-## Step 2 — Fetch release notes
+## Step 2 - Fetch release notes
 
 Run `scripts/fetch_release_notes.py <package> --from <from> --to <to> --ecosystem <npm|pypi>`.
 The script returns JSON with `versions`, `repo_url`, `changelog_raw`, and (when no CHANGELOG
@@ -62,13 +62,13 @@ file is found) a `releases` array filled from GitHub Releases. Pipe the output t
 or load it directly when chaining the next step.
 
 If `versions` is empty, tell the user there are no stable releases between `from` and `to`
-and stop. (Prereleases are skipped on purpose — the user is asking about a real bump.)
+and stop. (Prereleases are skipped on purpose - the user is asking about a real bump.)
 
 If both `changelog_raw` and `releases` are null, surface this as "no public release notes
 found" and stop. The skill's value-add is cross-referencing notes; without notes there's
 nothing to cross-reference.
 
-## Step 3 — Extract breaking changes
+## Step 3 - Extract breaking changes
 
 Pipe the changelog text into `scripts/extract_breaking.py`:
 
@@ -77,35 +77,35 @@ echo "$changelog_raw" | python scripts/extract_breaking.py
 ```
 
 You'll get either:
-- `sections: [...]` — one or more breaking-change sections, each with `heading`, `content`,
+- `sections: [...]` - one or more breaking-change sections, each with `heading`, `content`,
   `start_line`, `depth`, and a `symbols` list (the names to grep for).
-- `needs_review: true` — no dedicated breaking section was detected. Show the user the
+- `needs_review: true` - no dedicated breaking section was detected. Show the user the
   raw text + `review_reason` and let them decide what's worth checking. Don't fabricate.
 
 When `releases` is populated instead of `changelog_raw`, run each release's `body` through
 `extract_breaking` independently and merge the results.
 
-## Step 4 — Grep the user's repo
+## Step 4 - Grep the user's repo
 
 For each unique symbol across all sections, search the repo using the `Grep` tool (NOT
-`scripts/`-side — let the harness do this):
+`scripts/`-side - let the harness do this):
 
 - Pattern: the symbol itself for backticks, dotted refs, ALL_CAPS, CamelCase. For
   `name()` entries, drop the `()` and search for the bare name (Grep will hit declarations
   and call sites both).
 - Scope: the repo path the user provided. Skip `node_modules/`, `.venv/`, `dist/`,
-  `build/`, `vendor/` — these are not the user's code.
+  `build/`, `vendor/` - these are not the user's code.
 - Output mode: `content` with `-n` so each hit comes back as `file:line:context`.
 
 For each symbol that matches **at least one breaking section** AND **at least one file**,
 record the file paths + line numbers. A symbol with zero hits in the user's repo is
-nothing to report — that breaking change doesn't apply.
+nothing to report - that breaking change doesn't apply.
 
-## Step 5 — Affected-lines report
+## Step 5 - Affected-lines report
 
 Render a markdown report grouped **by breaking-change section**. Within each section, list
 each matched symbol with its repo hits as `path:line` refs and a one-line context excerpt.
-Symbols with zero repo hits are dropped — only show the user what actually affects them.
+Symbols with zero repo hits are dropped - only show the user what actually affects them.
 
 Output template:
 
@@ -124,11 +124,11 @@ Source: <CHANGELOG.md | GitHub Releases>
 
 Affected symbols and call sites:
 
-- `<symbol1>` — <K> hit(s)
-  - `path/to/file.ts:42` — `<context line>`
-  - `path/to/other.ts:108` — `<context line>`
-- `<symbol2>` — <K> hit(s)
-  - `path/to/file.ts:99` — `<context line>`
+- `<symbol1>` - <K> hit(s)
+  - `path/to/file.ts:42` - `<context line>`
+  - `path/to/other.ts:108` - `<context line>`
+- `<symbol2>` - <K> hit(s)
+  - `path/to/file.ts:99` - `<context line>`
 
 ## <Heading of second breaking section>
 …
@@ -159,7 +159,7 @@ Rules for the report:
 
   No structured breaking-change section was detected. Reason: <review_reason>
 
-  Raw release notes are pasted below — read them and let me know what to grep for.
+  Raw release notes are pasted below - read them and let me know what to grep for.
 
   ---
   <raw_text trimmed to ~3000 chars>

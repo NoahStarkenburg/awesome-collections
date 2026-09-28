@@ -43,8 +43,8 @@ def _parse_dt(value: str) -> int:
 
     Accepts:
         20260513T140000Z          (UTC datetime)
-        20260513T140000           (floating local — treated as UTC for v1)
-        20260513                  (date — midnight UTC)
+        20260513T140000           (floating local - treated as UTC for v1)
+        20260513                  (date - midnight UTC)
     Caller strips any parameters before the colon.
     """
     value = value.strip()

@@ -69,7 +69,7 @@ def test_watch_handles_keyboard_interrupt(tmp_path: Path, monkeypatch, capsys):
     cli.main(["--config", str(cfg_path), "--db", str(db_path), "init"])
     capsys.readouterr()
 
-    # Inject a KeyboardInterrupt on the first sleep — proves the loop exits
+    # Inject a KeyboardInterrupt on the first sleep - proves the loop exits
     # cleanly with rc=0 instead of propagating the exception.
     def fake_sleep(_seconds):
         raise KeyboardInterrupt()

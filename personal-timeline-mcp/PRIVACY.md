@@ -1,7 +1,7 @@
 # PRIVACY
 
 `personal-timeline-mcp` reads local data from the sources you opt into via
-`~/.personal-timeline/config.toml`. **Nothing leaves your machine** in v1 —
+`~/.personal-timeline/config.toml`. **Nothing leaves your machine** in v1 -
 there are no network calls anywhere in the codebase.
 
 If you ever want to confirm that for yourself:
@@ -11,7 +11,7 @@ rg -n "urlopen|requests|httpx|urllib|socket\." personal-timeline-mcp/src
 ```
 
 The only matches you should see are inside the FastMCP framework itself
-(which speaks stdio JSON-RPC to the client — no outbound HTTP).
+(which speaks stdio JSON-RPC to the client - no outbound HTTP).
 
 ## What's read
 
@@ -39,7 +39,7 @@ is the only way it reads anything.
 ### `[sources.git]`
 
 - **Repos:** only paths listed in `repos = [...]`.
-- **What:** for each commit — SHA, author name/email, timestamp, commit
+- **What:** for each commit - SHA, author name/email, timestamp, commit
   subject, list of changed file paths.
 - **Never:** file *contents*, diffs, blob data, refs other than commits.
 - **Author filter:** `author_email = "you@example.com"` restricts to your
@@ -95,23 +95,23 @@ Even with every source enabled, the server never reads:
   for git).
 - Browser cookies, passwords, autofill, downloads, bookmarks, extensions.
 - Anything from your email, chat, Slack, Discord, or cloud services. v1 has
-  no OAuth — those sources are deferred to v0.2 and will be off-by-default.
+  no OAuth - those sources are deferred to v0.2 and will be off-by-default.
 - Anything outside the explicit paths you put in `config.toml`.
 
 ## What's logged
 
 The server uses Python's `logging` module at WARNING level by default. Errors
 include file paths but no contents. Set `LOG_LEVEL=DEBUG` if you need verbose
-diagnostics — that's printed to stderr only and never written to disk.
+diagnostics - that's printed to stderr only and never written to disk.
 
 ## Out of scope for v1
 
-- OAuth sources (Slack DMs, Gmail, Google Calendar API) — deferred to v0.2.
+- OAuth sources (Slack DMs, Gmail, Google Calendar API) - deferred to v0.2.
 - Cloud sync of the index.
 - Multi-machine merging.
 - Encryption at rest of the index file. (SQLite encryption extensions exist
   but aren't part of v1.) Treat `index.db` like you'd treat your shell
-  history file — protect it via OS file permissions.
+  history file - protect it via OS file permissions.
 
 ## Questions
 

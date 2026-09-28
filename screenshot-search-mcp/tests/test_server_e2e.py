@@ -1,6 +1,6 @@
 """End-to-end MCP protocol test.
 
-Uses the FastMCP in-memory `Client` transport — no stdio, no subprocess. This
+Uses the FastMCP in-memory `Client` transport - no stdio, no subprocess. This
 exercises the real `list_tools` / `call_tool` path that Claude Desktop / Cursor /
 Cline / Continue use, so a pass here means every tool is reachable and its JSON
 schema is well-formed.
@@ -45,7 +45,7 @@ async def test_search_by_color_via_protocol(server, sample_image, tmp_path):
     """End-to-end: index a known-color image, then search for that color."""
     async with Client(server) as client:
         await client.call_tool("index_directory", {"path": str(tmp_path), "recursive": False})
-        # 50,100,200 is a strong blue — search for it.
+        # 50,100,200 is a strong blue - search for it.
         result = await client.call_tool(
             "search_by_color", {"hex_color": "#3264c8", "tolerance": 30}
         )
@@ -187,7 +187,7 @@ async def test_compare_images_handles_missing_file(server, sample_image):
 @pytest.mark.asyncio
 async def test_compare_images_returns_similarity_or_graceful_error(server, sample_image):
     """When both files exist, either we get a real similarity or a graceful
-    error if CLIP can't load — never a crash."""
+    error if CLIP can't load - never a crash."""
     async with Client(server) as client:
         result = await client.call_tool(
             "compare_images",
@@ -198,7 +198,7 @@ async def test_compare_images_returns_similarity_or_graceful_error(server, sampl
         # Graceful CLIP-unavailable path.
         assert "similarity" not in payload
     else:
-        # Identical images — cosine similarity should be near 1.0.
+        # Identical images - cosine similarity should be near 1.0.
         assert payload["similarity"] > 0.99
         assert payload["distance"] < 0.01
 
@@ -214,6 +214,6 @@ async def test_visual_tools_degrade_gracefully_without_clip(server, sample_image
         fs = await client.call_tool("find_similar", {"image_path": str(sample_image)})
     sv_payload = json.loads(sv.content[0].text)
     fs_payload = json.loads(fs.content[0].text)
-    # Either a real result or a graceful error — never a crash.
+    # Either a real result or a graceful error - never a crash.
     for payload in (sv_payload, fs_payload):
         assert "count" in payload or "error" in payload

@@ -145,7 +145,7 @@ def search_text(query: str, since: str | None = None, max_results: int = 10) -> 
 
     Args:
         query: FTS5 query string. Plain words work; quote phrases for exact match.
-        since: optional ISO-8601 timestamp or epoch seconds — restrict to files
+        since: optional ISO-8601 timestamp or epoch seconds - restrict to files
             modified after this time. Examples: "2026-04-01", "1714521600".
         max_results: cap on returned rows.
 
@@ -178,14 +178,14 @@ def search_visual(query: str, since: str | None = None, max_results: int = 10) -
 
     Args:
         query: natural-language description ("error dialog with red button").
-        since: optional ISO-8601 timestamp or epoch seconds — same shape as `search_text`.
+        since: optional ISO-8601 timestamp or epoch seconds - same shape as `search_text`.
         max_results: cap on returned rows.
 
     Returns: {results: [{path, mtime, size, score}, ...], count, model}.
 
     Requires `open_clip_torch` and ~150 MB of ViT-B/32 weights (downloaded on
     first call). If the CLIP loader fails, returns {"error": "..."} instead of
-    raising — Claude/other clients should surface the message to the user.
+    raising - Claude/other clients should surface the message to the user.
     """
     conn = _get_conn()
     since_ts: float | None = None
@@ -278,7 +278,7 @@ def search_by_color(hex_color: str, tolerance: int = 30, max_results: int = 10) 
     """Find indexed images whose dominant color matches `hex_color`.
 
     Useful for "find the screenshot with the red error banner" or "show me the
-    screenshots from that dark-themed app" — search vectors only let you do this
+    screenshots from that dark-themed app" - search vectors only let you do this
     via semantic phrases, but color matches the literal pixels.
 
     Args:
@@ -368,7 +368,7 @@ def reindex_directory(
 def compare_images(image_path_a: str, image_path_b: str) -> dict:
     """Compute CLIP cosine similarity between two specific images.
 
-    Neither image needs to be in the index — useful for ad-hoc "are these
+    Neither image needs to be in the index - useful for ad-hoc "are these
     two screenshots the same screen / very similar?" questions where you
     don't want to bring an entire directory into the indexer.
 
@@ -399,7 +399,7 @@ def compare_images(image_path_a: str, image_path_b: str) -> dict:
 
     dim = len(blob_a) // 4
     if len(blob_b) != dim * 4:
-        return {"error": "Embedding dimensionality mismatch — re-check CLIP install."}
+        return {"error": "Embedding dimensionality mismatch - re-check CLIP install."}
     va = _struct.unpack(f"<{dim}f", blob_a)
     vb = _struct.unpack(f"<{dim}f", blob_b)
     # Both embeddings are L2-normalized by clip.embed_image, so cosine
@@ -439,7 +439,7 @@ def tag_image(image_path: str, tags: list[str], mode: str = "add") -> dict:
     worry about case sensitivity. `mode="add"` keeps any existing tags;
     `mode="replace"` clears them first.
 
-    The image must already be in the index — call `index_directory` over
+    The image must already be in the index - call `index_directory` over
     its parent dir first if not. Returns the resulting tag set.
     """
     target = Path(image_path).expanduser().resolve()
@@ -488,7 +488,7 @@ def extract_text(image_path: str, lang: str = "eng") -> dict:
     lives outside the indexed directories.
 
     Returns: {path, text, length}. Empty `text` means Tesseract found nothing
-    or the binary isn't installed — call `ping` and check the Tesseract install
+    or the binary isn't installed - call `ping` and check the Tesseract install
     if you expected text.
     """
     target = Path(image_path).expanduser().resolve()
@@ -503,7 +503,7 @@ def get_metadata(image_path: str) -> dict:
     """Return filesystem stats, EXIF tags, and current index status for an image.
 
     Useful for "when was this screenshot taken?" or "is this in the index yet?"
-    questions. EXIF is optional — most screenshots don't carry it.
+    questions. EXIF is optional - most screenshots don't carry it.
     """
     target = Path(image_path).expanduser().resolve()
     if not target.is_file():
@@ -556,7 +556,7 @@ def _has_embedding(conn, image_id: int, model: str) -> bool:
 
 
 def _safe_exif_value(val):
-    """EXIF values can be IFDRational, bytes, tuples — coerce to JSON-friendly."""
+    """EXIF values can be IFDRational, bytes, tuples - coerce to JSON-friendly."""
     if isinstance(val, bytes):
         try:
             return val.decode("utf-8", errors="replace")
@@ -588,7 +588,7 @@ def _parse_since(value: str) -> float:
 
 
 def main() -> None:
-    """Console-script entry point — runs the server over stdio."""
+    """Console-script entry point - runs the server over stdio."""
     mcp.run()
 
 

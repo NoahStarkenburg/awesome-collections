@@ -53,7 +53,7 @@ def test_skips_dirs_with_no_workspace_json(tmp_path: Path):
     storage.mkdir()
     orphan = storage / "orphan"
     orphan.mkdir()
-    # No workspace.json — should be silently skipped.
+    # No workspace.json - should be silently skipped.
     _make_workspace(storage, "aaa", "file:///home/user/projectA", 1715000000)
     events = list(vscode.read_events(storage))
     assert len(events) == 1
@@ -72,7 +72,7 @@ def test_skips_invalid_json(tmp_path: Path):
 
 
 def test_skips_non_file_uri(tmp_path: Path):
-    """Remote SSH / WSL workspaces use vscode-remote:// — no local mtime to
+    """Remote SSH / WSL workspaces use vscode-remote:// - no local mtime to
     anchor an event against, so they're skipped (URI is preserved in the
     skip log, not surfaced as an event)."""
     storage = tmp_path / "workspaceStorage"
@@ -84,7 +84,7 @@ def test_skips_non_file_uri(tmp_path: Path):
         encoding="utf-8",
     )
     # urlparse on a vscode-remote URI gives scheme='vscode-remote' which our
-    # decoder rejects. We emit *something* because we have a uri — verify.
+    # decoder rejects. We emit *something* because we have a uri - verify.
     _make_workspace(storage, "ok", "file:///home/user/projectA", 1715000000)
     events = list(vscode.read_events(storage))
     assert len(events) == 2  # remote IS emitted, but with body=uri
@@ -113,7 +113,7 @@ def test_missing_directory_raises(tmp_path: Path):
 
 
 def test_locate_storage_dirs_does_not_raise():
-    # Returns list (possibly empty) on all platforms — must never crash.
+    # Returns list (possibly empty) on all platforms - must never crash.
     result = vscode.locate_storage_dirs()
     assert isinstance(result, list)
     for p in result:

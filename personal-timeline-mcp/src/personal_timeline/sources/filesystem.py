@@ -100,7 +100,7 @@ def read_events(
 ) -> Iterator[Event]:
     """Yield filesystem Events. `source_id` is the file path so subsequent
     walks dedupe naturally. `since_ts` (unix seconds) filters to files whose
-    integer mtime is > the watermark — matches how we serialize event.ts."""
+    integer mtime is > the watermark - matches how we serialize event.ts."""
     for meta in walk(root, ignore=ignore):
         ts_int = int(meta.mtime)
         if since_ts is not None and ts_int <= since_ts:

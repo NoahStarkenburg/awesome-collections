@@ -76,7 +76,7 @@ def test_faiss_path_respects_since_filter(seeded_db):
 
 def test_use_faiss_true_without_extra_raises(seeded_db, monkeypatch):
     """If a caller insists on FAISS but the extra is missing, give them an
-    explicit ImportError — never silently fall back to a different algorithm
+    explicit ImportError - never silently fall back to a different algorithm
     when they explicitly asked for one."""
     monkeypatch.setattr(faiss_search, "is_available", lambda: True)
 
@@ -100,7 +100,7 @@ def test_auto_dispatch_uses_in_python_when_corpus_below_threshold(seeded_db):
 
 def test_auto_dispatch_uses_faiss_when_corpus_above_threshold(seeded_db):
     """Auto mode: drop the threshold so 4 rows triggers FAISS. Confirm the
-    delegation happens (we don't need the call to do real work — just to fire)."""
+    delegation happens (we don't need the call to do real work - just to fire)."""
     with (
         patch.object(faiss_search, "FAISS_THRESHOLD", 2),
         patch.object(faiss_search, "is_available", return_value=True),

@@ -1,6 +1,6 @@
 """CLIP model loader + image/text embedding passes.
 
-Loads `open_clip` ViT-B/32 lazily so server startup stays fast — `ping` works
+Loads `open_clip` ViT-B/32 lazily so server startup stays fast - `ping` works
 without ever loading CLIP. Embedding functions normalize vectors to unit length
 and serialize them as float32 BLOBs for the `embeddings` table.
 """
@@ -80,7 +80,7 @@ def is_loaded() -> bool:
 
 
 def reset() -> None:
-    """Drop the cached model. Test-only — releases memory between runs."""
+    """Drop the cached model. Test-only - releases memory between runs."""
     with _lock:
         _state.clear()
 
@@ -124,7 +124,7 @@ def embed_image(image_path: str | Path) -> bytes:
 def embed_text(query: str) -> list[float]:
     """Compute the L2-normalized CLIP embedding for a text query.
 
-    Returns a Python list of floats (not a BLOB) — callers feed this directly
+    Returns a Python list of floats (not a BLOB) - callers feed this directly
     into `store.nearest_neighbors`, which expects an unwrapped vector.
     """
     if not query.strip():

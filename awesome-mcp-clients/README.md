@@ -2,7 +2,7 @@
 
 > A curated list of clients that speak the [Model Context Protocol](https://modelcontextprotocol.io).
 
-MCP **server** lists are everywhere. **Client** lists are sparse. This focuses on apps, agents, editors, and tools that *consume* MCP servers — anything that connects to an MCP server and uses its tools, resources, and prompts.
+MCP **server** lists are everywhere. **Client** lists are sparse. This focuses on apps, agents, editors, and tools that *consume* MCP servers - anything that connects to an MCP server and uses its tools, resources, and prompts.
 
 ## Contents
 
@@ -56,7 +56,7 @@ _Coming soon._
 PRs welcome. Each entry should:
 
 - Be an actual MCP **client** (consumes MCP servers, not just MCP-adjacent or "supports MCP" in name only).
-- Use the standard line format — generate it with the included pipeline:
+- Use the standard line format - generate it with the included pipeline:
 
 ```bash
 python pipeline/fetch.py https://github.com/your/client

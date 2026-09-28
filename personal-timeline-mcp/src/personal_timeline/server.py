@@ -31,7 +31,7 @@ mcp = FastMCP(
         "Local activity timeline aggregator. Sources: browser history "
         "(Chrome/Edge/Brave/Firefox/Safari), VS Code workspaces, "
         "git commits, filesystem mtimes, "
-        "calendar (.ics). All local — no network. Call `list_sources()` "
+        "calendar (.ics). All local - no network. Call `list_sources()` "
         "first to see what's configured. Use `index_sources()` to populate "
         "the index, then `timeline_around()`, `what_changed_today()`, "
         "`find_session()`, `summarize_workday()`, `summarize_week()`, "
@@ -143,12 +143,12 @@ def index_sources(force_full: bool = False) -> dict:
     """Drive every enabled source through its ingest pipeline.
 
     Sources covered (each only runs if its `enabled = true` in config.toml):
-        - `git`        — every repo under `[sources.git].repos`
-        - `filesystem` — every dir under `[sources.filesystem].dirs`
-        - `chrome` / `firefox` — auto-locate the History/places DB, or use
+        - `git` - every repo under `[sources.git].repos`
+        - `filesystem` - every dir under `[sources.filesystem].dirs`
+        - `chrome` / `firefox` - auto-locate the History/places DB, or use
           `[sources.<name>].profile_dir` (Chromium) / `history_db`/`places_db`
           to point at an explicit path
-        - `calendar`   — every path under `[sources.calendar].ics_paths`
+        - `calendar` - every path under `[sources.calendar].ics_paths`
 
     Args:
         force_full: if true, clear `source_state` for each enabled source so
@@ -204,7 +204,7 @@ def timeline_around(
 
     Args:
         timestamp: ISO-8601 (`2026-05-14T09:30:00Z` or `2026-05-14`) or epoch seconds.
-        window: human-readable span — `"30m"`, `"1h"`, `"2h"`, `"1d"`. Default 1h.
+        window: human-readable span - `"30m"`, `"1h"`, `"2h"`, `"1d"`. Default 1h.
         sources: optional source filter (e.g. `["git", "calendar"]`).
         limit: cap on returned events.
 
@@ -232,12 +232,12 @@ def what_changed_today(path: str | None = None, date: str | None = None) -> dict
     """Return filesystem + git events for a given day (default: today).
 
     Args:
-        path: optional path prefix — restrict to events whose payload `path`
+        path: optional path prefix - restrict to events whose payload `path`
             (fs) or `files` (git) include this substring.
         date: optional ISO date (`YYYY-MM-DD`); default is the system's
             current UTC date.
 
-    Returns: {date, count, events: [...]} — events ordered chronologically.
+    Returns: {date, count, events: [...]} - events ordered chronologically.
     """
     from datetime import datetime, timedelta
 
@@ -364,7 +364,7 @@ def _summarize_day(conn, day) -> dict:
         "git_commits": commits,
         "calendar_blocks": calendar_blocks,
         "top_files": [{"path": p, "hits": n} for p, n in file_hits.most_common(10)],
-        "_file_hits": file_hits,  # internal — stripped before client return
+        "_file_hits": file_hits,  # internal - stripped before client return
     }
 
 
@@ -531,7 +531,7 @@ def delete_events_in_range(
     Args:
         start: ISO-8601 (`2026-05-14T09:30:00Z` / `2026-05-14`) or epoch seconds.
         end:   same format. Must be >= `start`.
-        sources: optional source filter — only drop rows from these sources
+        sources: optional source filter - only drop rows from these sources
             within the window.
 
     Returns: {start_ts, end_ts, sources, deleted_count}.
@@ -593,7 +593,7 @@ def correlate(
         if int(r["id"]) == int(event_id):
             continue
         if candidate_sources is None and r["source"] == ref_source:
-            # Cross-source by default — same-source matches add noise.
+            # Cross-source by default - same-source matches add noise.
             continue
         out.append(
             {
@@ -758,7 +758,7 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
         return {"ingested": ingested, "storage_dirs": dirs_seen, "flavors": flavors}
 
     if source in ("chrome", "firefox", "safari"):
-        # Browser indexing needs a concrete History/places.sqlite path — either
+        # Browser indexing needs a concrete History/places.sqlite path - either
         # explicit in config or auto-located.
         explicit = opts.get("history_db") or opts.get("places_db")
         if source == "chrome":
@@ -782,7 +782,7 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
             if profile is None:
                 return {
                     "ingested": 0,
-                    "note": "profile not located — set [sources.<name>].profile_dir",
+                    "note": "profile not located - set [sources.<name>].profile_dir",
                 }
             path = profile / db_name
         if not path.is_file():
@@ -804,7 +804,7 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
 
 
 def main() -> None:
-    """Console-script entry point — runs the server over stdio."""
+    """Console-script entry point - runs the server over stdio."""
     mcp.run()
 
 

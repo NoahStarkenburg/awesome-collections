@@ -43,14 +43,14 @@ INLINE_BREAKING_RE = re.compile(
     re.I,
 )
 
-# Symbol-extraction regexes. Order matters — backticks are most reliable.
+# Symbol-extraction regexes. Order matters - backticks are most reliable.
 BACKTICK_RE = re.compile(r"`([^`\n]{1,80})`")
 CALL_RE = re.compile(r"\b([a-z_][a-z0-9_]*)\s*\(")
 DOTTED_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+)")
 CAMEL_RE = re.compile(r"\b([A-Z][a-z]+(?:[A-Z][a-z0-9]+)+)\b")
 ALLCAPS_RE = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
 
-# Words to drop from CamelCase/ALLCAPS hits — these are English, not symbols.
+# Words to drop from CamelCase/ALLCAPS hits - these are English, not symbols.
 STOPWORDS = {
     "API",
     "APIS",
@@ -228,7 +228,7 @@ def analyze(text: str) -> dict:
             else:
                 review_reason = (
                     "Looks like a changelog but no 'Breaking' heading was found. "
-                    "Author may use a non-standard format — surface raw text."
+                    "Author may use a non-standard format - surface raw text."
                 )
             needs_review = True
         else:

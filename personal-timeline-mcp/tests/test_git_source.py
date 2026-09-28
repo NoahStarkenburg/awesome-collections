@@ -49,7 +49,7 @@ def _commit(
     when: int | None = None,
 ) -> str:
     """Stage + commit. `when` (unix ts) is required for deterministic ordering
-    — tests that rely on ts comparisons must pass distinct values."""
+    - tests that rely on ts comparisons must pass distinct values."""
     (repo / filename).write_text(content, encoding="utf-8")
     _run(repo, "add", filename)
     extra: dict[str, str] = {}
@@ -90,7 +90,7 @@ def test_list_commits_returns_all(fixture_repo: Path):
 
 def test_list_commits_since_filter(fixture_repo: Path):
     all_commits = gitsrc.list_commits(fixture_repo)
-    # `git log --since=@<ts>` is inclusive — bump by 1s to exclude the oldest.
+    # `git log --since=@<ts>` is inclusive - bump by 1s to exclude the oldest.
     oldest_ts = all_commits[-1]["ts"]
     later = gitsrc.list_commits(fixture_repo, since_ts=oldest_ts + 1)
     assert len(later) == 2
@@ -129,7 +129,7 @@ def test_ingest_repo_is_incremental(fixture_repo: Path, tmp_path: Path):
         assert r1["ingested"] == 3
         assert store.count_events(conn, "git") == 3
 
-        # No new commits — second pass ingests nothing.
+        # No new commits - second pass ingests nothing.
         r2 = gitsrc.ingest_repo(conn, fixture_repo)
         assert r2["ingested"] == 0
         assert store.count_events(conn, "git") == 3

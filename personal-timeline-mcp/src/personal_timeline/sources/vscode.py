@@ -4,11 +4,11 @@ VS Code keeps per-workspace state under `User/workspaceStorage/<hash>/`. Each
 such directory has a `workspace.json` pointing at the workspace's folder or
 configuration file, plus a `state.vscdb` whose mtime updates whenever the
 workspace's state changes. Reading the storage dir gives us a clean
-"you were active in workspace X around time T" signal — distinct from the
+"you were active in workspace X around time T" signal - distinct from the
 filesystem source, which sees file changes but doesn't know which IDE
 workspace was open.
 
-We DON'T read `state.vscdb` (SQLite) for individual editor tabs — that surface
+We DON'T read `state.vscdb` (SQLite) for individual editor tabs - that surface
 moves between VS Code versions and isn't worth the brittleness for v1. The
 folder-level signal is the high-value one.
 
@@ -104,7 +104,7 @@ def read_events(
 
     Each event's `ts` is the storage dir's mtime (proxy for "last active in
     this workspace"). Empty dirs and ones with no parseable workspace.json
-    are skipped silently — VS Code leaves orphaned entries behind regularly.
+    are skipped silently - VS Code leaves orphaned entries behind regularly.
     """
     root = Path(storage_dir).expanduser()
     if not root.is_dir():

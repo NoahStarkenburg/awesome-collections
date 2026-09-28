@@ -80,7 +80,7 @@ def test_since_filter(tmp_path: Path):
             "From: a@x.com\nSubject: new\nDate: Mon, 01 Jan 2026 00:00:00 +0000\n\nnew",
         ],
     )
-    # since_ts between Jan 2024 and Jan 2026 — drops "old", keeps "new".
+    # since_ts between Jan 2024 and Jan 2026 - drops "old", keeps "new".
     events = list(mbox.read_events(path, since_ts=1750000000))
     assert [e.title for e in events] == ["new"]
 

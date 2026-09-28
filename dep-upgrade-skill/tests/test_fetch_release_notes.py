@@ -129,7 +129,7 @@ def offline(monkeypatch):
 def test_fetch_release_notes_npm_filters_stable_in_range(offline):
     result = frn.fetch_release_notes("react", "18.2.0", "19.0.0", "npm")
     assert result["repo_url"] == "https://github.com/facebook/react"
-    # 19.0.0-rc.0 is prerelease, 18.2.0 is lo-exclusive — both excluded.
+    # 19.0.0-rc.0 is prerelease, 18.2.0 is lo-exclusive - both excluded.
     assert result["versions"] == ["18.3.0", "18.3.1", "19.0.0"]
     assert "Breaking Changes" in (result["changelog_raw"] or "")
     assert result["releases"] is None  # CHANGELOG was found → no fallback
@@ -166,14 +166,14 @@ def test_list_crates_versions_filters_yanked():
     versions = frn.list_crates_versions(meta)
     assert "1.0.196" not in versions
     assert "1.0.197" in versions
-    assert "2.0.0-rc.1" in versions  # yanked status, not stability — keep prerelease
+    assert "2.0.0-rc.1" in versions  # yanked status, not stability - keep prerelease
 
 
 def test_fetch_release_notes_cargo(offline):
     result = frn.fetch_release_notes("serde", "1.0.193", "1.0.197", "cargo")
     assert result["ecosystem"] == "cargo"
     assert result["repo_url"] == "https://github.com/serde-rs/serde"
-    # 1.0.196 is yanked — excluded. 1.0.193 is lo-exclusive. 2.0.0-rc.1 is past hi.
+    # 1.0.196 is yanked - excluded. 1.0.193 is lo-exclusive. 2.0.0-rc.1 is past hi.
     assert result["versions"] == ["1.0.194", "1.0.195", "1.0.197"]
 
 
@@ -236,7 +236,7 @@ def test_fetch_release_notes_gomod(monkeypatch):
         if "proxy.golang.org/github.com/foo/bar/@v/list" in url:
             return proxy_response
         # find_changelog_text catches URLError and falls through to the next
-        # candidate — use it (not FileNotFoundError) so the changelog probe
+        # candidate - use it (not FileNotFoundError) so the changelog probe
         # exits gracefully.
         raise URLError("not found")
 

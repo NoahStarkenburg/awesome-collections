@@ -8,7 +8,7 @@ Shape:
     debounce_seconds = 2.0             # optional
     recursive = true                   # optional
 
-When the file is missing, `load()` returns Config.defaults() — no error. Use
+When the file is missing, `load()` returns Config.defaults() - no error. Use
 `bootstrap()` to write a starter config on first run.
 """
 

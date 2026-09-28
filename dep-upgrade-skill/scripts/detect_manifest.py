@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Detect package manifests in a repo and report ecosystems + dependency versions.
 
-Walks the given path (default cwd, non-recursive — manifests are root-level by
+Walks the given path (default cwd, non-recursive - manifests are root-level by
 convention) and reports each manifest's ecosystem + the locked-or-declared
 version for each dependency.
 
@@ -210,7 +210,7 @@ def _read_gomod(path: Path) -> dict | None:
 
     Pulls dependencies from `require` blocks (both the parenthesized
     block form and single-line `require X v0.0.0` form). Lines marked
-    `// indirect` are excluded — those aren't direct dependencies and
+    `// indirect` are excluded - those aren't direct dependencies and
     bumping them via upgrade-impact would be misleading.
     """
     try:
@@ -257,7 +257,7 @@ def _read_composer(path: Path) -> dict | None:
     """Parse a PHP `composer.json`.
 
     Pulls from both `require` and `require-dev`. The `php` runtime
-    constraint itself is dropped — composer treats it as a dep but
+    constraint itself is dropped - composer treats it as a dep but
     upgrade-impact analysis would only do dumb things with it.
     """
     try:
@@ -310,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
         "--check-only",
         action="store_true",
         help=(
-            "Skip the dependency listing — just print one ecosystem name per line "
+            "Skip the dependency listing - just print one ecosystem name per line "
             "(sorted, deduplicated). Useful as a precheck before invoking "
             "fetch_release_notes. Exit code: 0 if any ecosystem found, 1 if none."
         ),

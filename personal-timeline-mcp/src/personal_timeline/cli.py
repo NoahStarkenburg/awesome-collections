@@ -1,4 +1,4 @@
-"""personal-timeline CLI — administrative subcommands.
+"""personal-timeline CLI - administrative subcommands.
 
 Usage:
     personal-timeline init                  # bootstrap config + create the DB
@@ -22,7 +22,7 @@ from . import config, store
 
 
 def cmd_init(args) -> int:
-    """Bootstrap config + DB. Idempotent — safe to re-run."""
+    """Bootstrap config + DB. Idempotent - safe to re-run."""
     cfg_path = Path(args.config).expanduser() if args.config else config.DEFAULT_CONFIG_PATH
     written = config.bootstrap(cfg_path)
     cfg = config.load(written)
@@ -34,7 +34,7 @@ def cmd_init(args) -> int:
     print(f"Database: {db_path}")
     print()
     print("Next steps:")
-    print(f"  1. Edit {written} — enable sources and point at your repos/dirs/ics files.")
+    print(f"  1. Edit {written} - enable sources and point at your repos/dirs/ics files.")
     print("  2. Run `personal-timeline index` to populate the timeline.")
     return 0
 
@@ -51,7 +51,7 @@ def cmd_wipe(args) -> int:
     db_path = Path(args.db).expanduser() if args.db else cfg.db_path
 
     if not db_path.exists():
-        print(f"No index at {db_path} — nothing to wipe.")
+        print(f"No index at {db_path} - nothing to wipe.")
         return 0
 
     if not args.yes:
@@ -144,7 +144,7 @@ def cmd_watch(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="personal-timeline",
-        description="Local activity timeline — admin CLI for the MCP server.",
+        description="Local activity timeline - admin CLI for the MCP server.",
     )
     p.add_argument(
         "--config", help="path to config.toml (default: ~/.personal-timeline/config.toml)"

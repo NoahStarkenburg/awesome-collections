@@ -21,13 +21,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Visual search (search_visual, find_similar). Pulls in PyTorch — ~1 GB of
+# Visual search (search_visual, find_similar). Pulls in PyTorch - ~1 GB of
 # wheels. Skip this extra if you only need OCR-based text search.
 visual = [
     "open-clip-torch>=2.24",
     "numpy>=1.26",
 ]
-# PDF page indexing — rasterizes each page so the OCR pipeline picks it up.
+# PDF page indexing - rasterizes each page so the OCR pipeline picks it up.
 pdf = [
     "pypdfium2>=4.30",
 ]

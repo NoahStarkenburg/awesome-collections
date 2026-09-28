@@ -41,7 +41,7 @@ def test_read_npm_collects_all_dependency_groups(tmp_path: Path):
 
 def test_read_npm_handles_broken_json(tmp_path: Path):
     (tmp_path / "package.json").write_text("{not-json", encoding="utf-8")
-    # Broken manifests are silently dropped — detect_manifest is best-effort.
+    # Broken manifests are silently dropped - detect_manifest is best-effort.
     assert dm.detect(tmp_path) == []
 
 
@@ -71,7 +71,7 @@ def test_read_composer_filters_php_and_ext(tmp_path: Path):
     assert len(out) == 1
     m = out[0]
     assert m["ecosystem"] == "composer"
-    # php / ext-* / lib-* are platform constraints, not packages — must be dropped.
+    # php / ext-* / lib-* are platform constraints, not packages - must be dropped.
     assert "php" not in m["dependencies"]
     assert "ext-mbstring" not in m["dependencies"]
     assert "lib-libxml" not in m["dependencies"]
@@ -221,7 +221,7 @@ def test_check_only_exits_nonzero_when_empty(tmp_path: Path, capsys):
 
 def test_check_only_does_not_emit_json(tmp_path: Path, capsys):
     """Make sure the precheck mode doesn't also dump the JSON manifest list
-    — a downstream `gh actions if` would choke on the extra output."""
+    - a downstream `gh actions if` would choke on the extra output."""
     (tmp_path / "package.json").write_text(
         json.dumps({"dependencies": {"react": "^18.0.0"}}), encoding="utf-8"
     )

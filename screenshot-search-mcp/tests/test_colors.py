@@ -66,7 +66,7 @@ def test_search_by_color_finds_close_matches(tmp_path: Path):
         store.upsert_image(conn, path="b.png", mtime=2.0, size=2, dominant_rgb=0xF00010)
         store.upsert_image(conn, path="c.png", mtime=3.0, size=3, dominant_rgb=0x0000FF)
 
-        # tolerance=30 (per-channel) — should catch red + near-red, exclude blue.
+        # tolerance=30 (per-channel) - should catch red + near-red, exclude blue.
         rows = store.search_by_color(conn, 0xFF0000, tolerance=30)
         paths = [r[0]["path"] for r in rows]
         assert "a.png" in paths
@@ -114,6 +114,6 @@ def test_init_db_idempotent_migration(tmp_path: Path):
     db = tmp_path / "test.db"
     conn1 = store.init_db(db)
     conn1.close()
-    # Reopen — _ensure_columns finds dominant_rgb already present, must no-op.
+    # Reopen - _ensure_columns finds dominant_rgb already present, must no-op.
     conn2 = store.init_db(db)
     conn2.close()

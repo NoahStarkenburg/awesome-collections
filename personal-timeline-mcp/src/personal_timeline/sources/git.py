@@ -1,12 +1,12 @@
 """Git commit reader.
 
 Walks one or more local git repositories and yields commit Events. Uses the
-`git` CLI via subprocess — no pygit2 dependency, no libgit2 install.
+`git` CLI via subprocess - no pygit2 dependency, no libgit2 install.
 
 Public:
     list_commits(repo_path, *, since_ts=None, author_email=None, max_count=None)
     read_events(repo_path, *, since_ts=None, author_email=None)
-    ingest_repo(conn, repo_path, *, author_email=None) — incremental, uses
+    ingest_repo(conn, repo_path, *, author_email=None) - incremental, uses
         source_state to remember the last commit ts ingested per repo.
 """
 
@@ -44,7 +44,7 @@ def list_commits(
     author_email: str | None = None,
     max_count: int | None = None,
 ) -> list[dict]:
-    """Return commit records as plain dicts. Pure function — easy to test.
+    """Return commit records as plain dicts. Pure function - easy to test.
 
     Each record: {sha, author_name, author_email, ts, subject, files}.
     """
