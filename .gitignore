@@ -1,6 +1,5 @@
 # Local-only working state
 .local/
-.claude/
 
 # Python
 __pycache__/
