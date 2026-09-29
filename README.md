@@ -1,7 +1,7 @@
 # awesome-collections
 
 A monorepo of small AI / developer-tooling projects, each self-contained and
-shippable on its own. Pulls together three production-ready tools plus a
+shippable on its own. Pulls together three tools plus a
 curated reference list - all under a single repo so they share CI, lint
 rules, and contribution conventions.
 
