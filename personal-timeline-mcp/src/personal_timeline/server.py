@@ -517,6 +517,102 @@ def export_events(
 
 
 @mcp.tool()
+def find_session_in_window(
+    query: str,
+    start: str,
+    end: str,
+    max_results: int = 20,
+) -> dict:
+    """FTS5 search scoped to a time window.
+
+    Same query syntax as `find_session`, but only matches events within
+    [start, end] inclusive. Use when you want "what was I doing about X
+    around the time of Y" — narrower than scanning the whole index.
+
+    Args:
+        query: FTS5 query string.
+        start: ISO-8601 or epoch seconds (inclusive lower bound).
+        end:   ISO-8601 or epoch seconds (inclusive upper bound).
+        max_results: cap.
+    """
+    start_ts = _parse_ts(start)
+    end_ts = _parse_ts(end)
+    if end_ts < start_ts:
+        return {
+            "error": f"end ({end_ts}) is before start ({start_ts})",
+            "results": [],
+            "count": 0,
+        }
+    rows = store.search_events(
+        _get_conn(),
+        query,
+        max_results=max_results,
+        start_ts=start_ts,
+        end_ts=end_ts,
+    )
+    return {
+        "query": query,
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "count": len(rows),
+        "results": [{**_row_to_dict(r), "score": float(r["score"])} for r in rows],
+    }
+
+
+@mcp.tool()
+def event_stats() -> dict:
+    """Index health snapshot: counts per source, time bounds, DB size.
+
+    Useful as a one-call sanity check before running heavier queries.
+    Cheaper than `list_sources` (no source-state join) and includes
+    the on-disk DB size so callers can spot a runaway index.
+
+    Returns:
+        - `total_events`: total row count across all sources.
+        - `by_source`: `{source: count}` for sources with at least one row.
+        - `oldest_ts` / `newest_ts`: timestamp bounds (None on an empty index).
+        - `oldest_iso` / `newest_iso`: same, formatted as ISO-8601 UTC.
+        - `db_path`: where the SQLite file lives.
+        - `db_size_bytes`: size on disk (sum of `.db` + `-wal` + `-shm`).
+    """
+    conn = _get_conn()
+    total = int(conn.execute("SELECT COUNT(*) AS c FROM events").fetchone()["c"])
+    by_source = {
+        row["source"]: int(row["c"])
+        for row in conn.execute(
+            "SELECT source, COUNT(*) AS c FROM events GROUP BY source ORDER BY c DESC"
+        )
+    }
+    bounds = conn.execute("SELECT MIN(ts) AS lo, MAX(ts) AS hi FROM events").fetchone()
+    oldest = None if bounds["lo"] is None else int(bounds["lo"])
+    newest = None if bounds["hi"] is None else int(bounds["hi"])
+
+    db_path = _db_path()
+    db_size = 0
+    for suffix in ("", "-wal", "-shm"):
+        candidate = db_path.with_name(db_path.name + suffix) if suffix else db_path
+        try:
+            db_size += candidate.stat().st_size
+        except OSError:
+            continue
+
+    return {
+        "db_path": str(db_path),
+        "db_size_bytes": int(db_size),
+        "total_events": total,
+        "by_source": by_source,
+        "oldest_ts": oldest,
+        "newest_ts": newest,
+        "oldest_iso": (
+            None if oldest is None else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(oldest))
+        ),
+        "newest_iso": (
+            None if newest is None else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(newest))
+        ),
+    }
+
+
+@mcp.tool()
 def delete_events_in_range(
     start: str,
     end: str,
@@ -681,7 +777,7 @@ def _row_to_dict(row) -> dict:
 def _ingest_one(conn, source: str, opts: dict) -> dict:
     """Dispatch one source's options to its reader/ingestor."""
     from .sources import calendar as calsrc
-    from .sources import chrome, firefox, mbox, safari, slack, vscode
+    from .sources import chrome, discord, firefox, mbox, notion, safari, slack, vscode
     from .sources import filesystem as fssrc
     from .sources import git as gitsrc
 
@@ -737,6 +833,38 @@ def _ingest_one(conn, source: str, opts: dict) -> dict:
         if high is not None:
             store.update_source_state(conn, source, last_event_ts=int(high))
         return {"ingested": ingested, "paths": paths}
+
+    if source == "discord":
+        package_dirs = opts.get("package_dirs") or []
+        state = store.get_source_state(conn, source)
+        since = state["last_event_ts"] if state and state.get("last_event_ts") else None
+        ingested = 0
+        high = since
+        for package in package_dirs:
+            for event in discord.read_events(package, since_ts=since):
+                store.upsert_event(conn, event)
+                ingested += 1
+                if high is None or event.ts > high:
+                    high = event.ts
+        if high is not None:
+            store.update_source_state(conn, source, last_event_ts=int(high))
+        return {"ingested": ingested, "package_dirs": package_dirs}
+
+    if source == "notion":
+        export_dirs = opts.get("export_dirs") or []
+        state = store.get_source_state(conn, source)
+        since = state["last_event_ts"] if state and state.get("last_event_ts") else None
+        ingested = 0
+        high = since
+        for export in export_dirs:
+            for event in notion.read_events(export, since_ts=since):
+                store.upsert_event(conn, event)
+                ingested += 1
+                if high is None or event.ts > high:
+                    high = event.ts
+        if high is not None:
+            store.update_source_state(conn, source, last_event_ts=int(high))
+        return {"ingested": ingested, "export_dirs": export_dirs}
 
     if source == "vscode":
         flavors = opts.get("flavors") or ["code"]
