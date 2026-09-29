@@ -415,6 +415,31 @@ def compare_images(image_path_a: str, image_path_b: str) -> dict:
 
 
 @mcp.tool()
+def rename_indexed_path(old_path: str, new_path: str) -> dict:
+    """Update an indexed image's path without re-OCR/CLIP.
+
+    Use after a disk-side move/rename so embeddings, OCR text, dominant
+    color, captured_at, and tags all carry over to the new location.
+    Resolves both paths the same way `index_directory` does — symlink and
+    `~` expansion are honored.
+
+    Returns:
+        - `{status: "renamed", ...}` — the index row now points at the new path.
+        - `{status: "missing"}`     — no indexed row at `old_path`.
+        - `{status: "conflict"}`    — `new_path` is already indexed.
+    """
+    src = Path(old_path).expanduser().resolve()
+    dst = Path(new_path).expanduser().resolve()
+    conn = _get_conn()
+    status = store.rename_path(conn, str(src), str(dst))
+    return {
+        "status": status,
+        "old_path": str(src),
+        "new_path": str(dst),
+    }
+
+
+@mcp.tool()
 def delete_indexed_directory(path: str) -> dict:
     """Drop every indexed image (and its embeddings + tags) under `path`.
 
@@ -429,6 +454,21 @@ def delete_indexed_directory(path: str) -> dict:
     conn = _get_conn()
     deleted = store.delete_by_path_prefix(conn, prefix)
     return {"prefix": prefix, "deleted_count": int(deleted)}
+
+
+@mcp.tool()
+def list_tags(min_count: int = 1, limit: int = 200) -> dict:
+    """Return every tag in the index with its image count, sorted desc.
+
+    Useful for UI autocomplete and inventorying what you've tagged.
+    Set `min_count > 1` to hide typo-ish one-off tags.
+    """
+    conn = _get_conn()
+    rows = store.list_all_tags(conn, min_count=min_count, limit=limit)
+    return {
+        "count": len(rows),
+        "tags": [{"tag": tag, "image_count": count} for tag, count in rows],
+    }
 
 
 @mcp.tool()
@@ -451,6 +491,25 @@ def tag_image(image_path: str, tags: list[str], mode: str = "add") -> dict:
         return {"error": f"Unknown mode: {mode!r} (use 'add' or 'replace')", "tags": []}
     resulting = store.set_tags(conn, int(row["id"]), tags, mode=mode)
     return {"path": str(target), "tags": resulting, "mode": mode}
+
+
+@mcp.tool()
+def untag_image(image_path: str, tags: list[str] | None = None) -> dict:
+    """Remove tags from an indexed image.
+
+    `tags=None` clears every tag on the image (handy for resetting). A list
+    of tag strings removes only those specific tags (case-insensitive,
+    same normalization as `tag_image`).
+
+    Returns the resulting tag set after removal.
+    """
+    target = Path(image_path).expanduser().resolve()
+    conn = _get_conn()
+    row = store.get_by_path(conn, str(target))
+    if row is None:
+        return {"error": f"Not indexed: {target}", "tags": []}
+    remaining = store.remove_tags(conn, int(row["id"]), tags)
+    return {"path": str(target), "tags": remaining}
 
 
 @mcp.tool()

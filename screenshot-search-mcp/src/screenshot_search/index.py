@@ -14,7 +14,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import colors, ocr, pdf, store
+from . import colors, exif, ocr, pdf, store
 
 log = logging.getLogger(__name__)
 
@@ -186,6 +186,7 @@ def index_directory(
 
         text = "" if skip_ocr else ocr.extract_text(path, lang=ocr_lang)
         rgb = colors.dominant_rgb(path)
+        captured_ts = exif.capture_time(path)
         try:
             store.upsert_image(
                 conn,
@@ -194,6 +195,7 @@ def index_directory(
                 size=stat.st_size,
                 ocr_text=text,
                 dominant_rgb=rgb,
+                captured_at=float(captured_ts) if captured_ts is not None else None,
             )
             result.indexed += 1
         except Exception as exc:  # pragma: no cover - defensive
