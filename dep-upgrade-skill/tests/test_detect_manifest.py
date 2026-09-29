@@ -231,6 +231,131 @@ def test_check_only_does_not_emit_json(tmp_path: Path, capsys):
     assert out.strip() == "npm"
 
 
+# -- Maven (pom.xml) -----------------------------------------------------------
+
+
+def test_read_maven_pom_basic(tmp_path: Path):
+    (tmp_path / "pom.xml").write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>app</artifactId>
+  <version>1.0.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>6.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
+""",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    assert len(out) == 1
+    m = out[0]
+    assert m["ecosystem"] == "maven"
+    assert m["dependencies"] == {
+        "org.springframework:spring-core": "6.0.0",
+        "junit:junit": "4.13.2",
+    }
+
+
+def test_read_maven_pom_skips_deps_without_version(tmp_path: Path):
+    """Dependencies that inherit version from dependencyManagement or a
+    parent pom don't carry a <version> here. Skipping them keeps the v1
+    surface unambiguous — upgrade-impact would lie about a version we
+    don't actually know."""
+    (tmp_path / "pom.xml").write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <dependencies>
+    <dependency>
+      <groupId>org.example</groupId>
+      <artifactId>has-version</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.example</groupId>
+      <artifactId>inherits-from-parent</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+""",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    assert out[0]["dependencies"] == {"org.example:has-version": "1.0.0"}
+
+
+def test_read_maven_pom_handles_no_namespace(tmp_path: Path):
+    """Some hand-written poms omit the namespace declaration. Should still parse."""
+    (tmp_path / "pom.xml").write_text(
+        "<project>"
+        "<dependencies>"
+        "<dependency>"
+        "<groupId>foo</groupId><artifactId>bar</artifactId><version>2.0</version>"
+        "</dependency>"
+        "</dependencies>"
+        "</project>",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    assert out[0]["dependencies"] == {"foo:bar": "2.0"}
+
+
+def test_read_maven_pom_handles_broken_xml(tmp_path: Path):
+    (tmp_path / "pom.xml").write_text("<project><unclosed", encoding="utf-8")
+    assert dm.detect(tmp_path) == []
+
+
+# -- requirements.txt ----------------------------------------------------------
+
+
+def test_read_requirements_txt_basic(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_text(
+        "# top-level comment\n"
+        "requests>=2.31\n"
+        "click==8.1.7\n"
+        "rich  # inline comment, no pin\n"
+        "django>=4.0,<5  ; python_version >= '3.10'\n"
+        "\n"
+        "-r dev-requirements.txt\n"
+        "-e .\n"
+        "--index-url https://pypi.org/simple\n",
+        encoding="utf-8",
+    )
+    out = dm.detect(tmp_path)
+    assert len(out) == 1
+    m = out[0]
+    assert m["ecosystem"] == "pypi-requirements"
+    assert m["dependencies"] == {
+        "requests": ">=2.31",
+        "click": "==8.1.7",
+        "rich": "",
+        "django": ">=4.0,<5",
+    }
+
+
+def test_read_requirements_txt_coexists_with_pyproject(tmp_path: Path):
+    """A repo with both pyproject and requirements.txt surfaces both."""
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "x"\ndependencies = ["requests>=2.31"]\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "requirements.txt").write_text("flask==3.0.0\n", encoding="utf-8")
+    ecosystems = sorted(m["ecosystem"] for m in dm.detect(tmp_path))
+    assert ecosystems == ["pypi", "pypi-requirements"]
+
+
 # -- pyproject -----------------------------------------------------------------
 
 
