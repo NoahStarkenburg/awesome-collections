@@ -1,20 +1,20 @@
 """Discord Data Package reader.
 
-Reads a *Discord Data Package* — the export you can request from Discord's
+Reads a *Discord Data Package* - the export you can request from Discord's
 Privacy & Safety settings. Layout:
 
     <package-root>/
       messages/
         c<channel-id>/
           channel.json   # { id, type, name?, guild? }
-          messages.csv   # legacy format (we ignore — superseded by .json)
+          messages.csv   # legacy format (we ignore - superseded by .json)
           messages.json  # array of { ID, Timestamp, Contents, Attachments }
         ...
       servers/
-        <guild-id>/...   # we don't read this — channel.json already has guild
+        <guild-id>/...   # we don't read this - channel.json already has guild
 
 Each message becomes one `Event`. Empty-content messages (joins, leaves,
-embed-only forwards) are skipped — they aren't useful for "what was I
+embed-only forwards) are skipped - they aren't useful for "what was I
 discussing" correlation.
 
 Public:
@@ -41,7 +41,7 @@ _CHANNEL_DIR_RE = re.compile(r"^c?\d+$")
 def _parse_timestamp(value: str) -> int | None:
     """Discord message timestamps are ISO-8601 like `2026-05-15T12:34:56.789+00:00`.
 
-    Some older exports use `2026-05-15T12:34:56` without timezone — treat
+    Some older exports use `2026-05-15T12:34:56` without timezone - treat
     those as UTC. Returns None on parse failure so the caller can skip the
     message rather than crash.
     """
@@ -89,8 +89,8 @@ def read_events(
 
     messages_dir = root / "messages"
     if not messages_dir.is_dir():
-        # Not a Discord package — surface as no events rather than raise.
-        log.debug("No messages/ under %s — skipping", root)
+        # Not a Discord package - surface as no events rather than raise.
+        log.debug("No messages/ under %s - skipping", root)
         return
 
     for channel_dir in sorted(messages_dir.iterdir()):

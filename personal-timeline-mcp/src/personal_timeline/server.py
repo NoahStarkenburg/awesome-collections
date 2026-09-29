@@ -527,7 +527,7 @@ def find_session_in_window(
 
     Same query syntax as `find_session`, but only matches events within
     [start, end] inclusive. Use when you want "what was I doing about X
-    around the time of Y" — narrower than scanning the whole index.
+    around the time of Y" - narrower than scanning the whole index.
 
     Args:
         query: FTS5 query string.

@@ -167,7 +167,7 @@ def search_events(
     """FTS5 search over title + body. Returns rows ordered by BM25.
 
     Optional `start_ts` / `end_ts` (unix seconds, inclusive) scope the search
-    to a time window — useful for "find the session about X around the time
+    to a time window - useful for "find the session about X around the time
     of Y" workflows.
     """
     if not query.strip():

@@ -272,7 +272,7 @@ def test_read_maven_pom_basic(tmp_path: Path):
 def test_read_maven_pom_skips_deps_without_version(tmp_path: Path):
     """Dependencies that inherit version from dependencyManagement or a
     parent pom don't carry a <version> here. Skipping them keeps the v1
-    surface unambiguous — upgrade-impact would lie about a version we
+    surface unambiguous - upgrade-impact would lie about a version we
     don't actually know."""
     (tmp_path / "pom.xml").write_text(
         """<?xml version="1.0" encoding="UTF-8"?>

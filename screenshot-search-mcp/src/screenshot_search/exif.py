@@ -6,7 +6,7 @@ date. Most screenshots don't carry EXIF; real camera images and many
 phone screenshots do. When present, this is a far better timeline anchor
 than the filesystem mtime (which moves whenever the file is touched).
 
-Pillow only — no piexif or exifread dependency.
+Pillow only - no piexif or exifread dependency.
 """
 
 from __future__ import annotations
@@ -17,16 +17,16 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-# EXIF tag id for DateTimeOriginal — the "when the shutter clicked" field.
+# EXIF tag id for DateTimeOriginal - the "when the shutter clicked" field.
 _DATETIME_ORIGINAL = 36867
-# DateTime (last-modified) — fallback when Original is missing.
+# DateTime (last-modified) - fallback when Original is missing.
 _DATETIME = 306
 
 
 def _parse_exif_datetime(value: str) -> int | None:
     """EXIF datetimes are `YYYY:MM:DD HH:MM:SS` (yes, colons in the date part).
 
-    We treat the value as UTC — EXIF doesn't specify a tz, and most cameras
+    We treat the value as UTC - EXIF doesn't specify a tz, and most cameras
     write local time without offset. For "what was I doing when" workflows
     UTC vs local within ~12h doesn't change the answer.
     """
@@ -47,7 +47,7 @@ def capture_time(image_path: str | Path) -> int | None:
     """Return DateTimeOriginal (or DateTime fallback) as unix seconds.
 
     Returns None for: missing file, no EXIF, unparseable timestamp, or
-    when Pillow raises. Never raises — callers can pipe the result
+    when Pillow raises. Never raises - callers can pipe the result
     straight into `upsert_image(..., captured_at=...)`.
     """
     try:
@@ -78,7 +78,7 @@ def capture_time(image_path: str | Path) -> int | None:
     exif_ifd = {}
     try:
         exif_ifd = exif.get_ifd(0x8769)
-    except Exception:  # noqa: BLE001 — Pillow raises odd shapes on partial EXIF
+    except Exception:  # noqa: BLE001 - Pillow raises odd shapes on partial EXIF
         exif_ifd = {}
 
     candidates = (

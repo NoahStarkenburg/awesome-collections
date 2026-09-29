@@ -284,7 +284,7 @@ def rename_path(
     """Update an indexed image's `path` to `new_path`.
 
     Use after a disk-side move/rename so the index doesn't have to re-OCR
-    and re-embed the file. Embeddings and tags ride on the `id` column —
+    and re-embed the file. Embeddings and tags ride on the `id` column -
     they survive the rename automatically.
 
     Returns:

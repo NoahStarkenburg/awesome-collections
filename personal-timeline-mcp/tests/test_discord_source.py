@@ -132,7 +132,7 @@ def test_since_ts_filters_older(tmp_path: Path):
 
 
 def test_dm_channel_falls_back_to_recipients_label(tmp_path: Path):
-    """DM channels (type 1) have no `name` — label uses recipients."""
+    """DM channels (type 1) have no `name` - label uses recipients."""
     pkg = _make_package(
         tmp_path / "pkg",
         {
@@ -171,7 +171,7 @@ def test_skips_messages_with_unparseable_timestamp(tmp_path: Path):
 
 def test_missing_messages_dir_yields_nothing(tmp_path: Path):
     """A directory that exists but isn't a Discord package surfaces no events
-    rather than crashing — useful when probing arbitrary paths."""
+    rather than crashing - useful when probing arbitrary paths."""
     (tmp_path / "random.txt").write_text("hi", encoding="utf-8")
     events = list(discord.read_events(tmp_path))
     assert events == []

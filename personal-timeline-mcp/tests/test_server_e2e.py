@@ -249,7 +249,7 @@ async def test_find_session_in_window_filters_by_time(server, tmp_path):
         seed_conn.close()
 
     async with Client(server) as client:
-        # Window only covers ts=5000 — earlier match is excluded.
+        # Window only covers ts=5000 - earlier match is excluded.
         result = await client.call_tool(
             "find_session_in_window",
             {"query": "auth", "start": "4000", "end": "6000"},
@@ -317,7 +317,7 @@ async def test_event_stats_populated(server, tmp_path):
     assert payload["by_source"] == {"git": 2, "chrome": 1}
     assert payload["oldest_ts"] == 1000
     assert payload["newest_ts"] == 3000
-    # ISO formatting sanity — ts=1000 is 1970-01-01T00:16:40Z.
+    # ISO formatting sanity - ts=1000 is 1970-01-01T00:16:40Z.
     assert payload["oldest_iso"].startswith("1970-01-01")
     assert payload["db_size_bytes"] > 0
     del tmp_path

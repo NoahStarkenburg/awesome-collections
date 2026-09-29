@@ -1,6 +1,6 @@
 """Notion workspace-export reader.
 
-Reads a *Notion HTML export* — the export you get from Settings & members ->
+Reads a *Notion HTML export* - the export you get from Settings & members ->
 Export content. Layout (one page per directory):
 
     <export-root>/
@@ -16,7 +16,7 @@ Each `.html` file becomes one Event. The 32-char hex hash trailing the
 title in Notion's filenames is stripped for a human-readable title; the
 hash is preserved in the payload so callers can correlate.
 
-The page's mtime is used as the event timestamp — Notion doesn't reliably
+The page's mtime is used as the event timestamp - Notion doesn't reliably
 embed last-edited times in the exported HTML, but the file mtime is set
 to the page's last-edit time by the exporter.
 

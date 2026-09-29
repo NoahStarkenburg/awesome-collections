@@ -181,7 +181,7 @@ def _read_maven_pom(path: Path) -> dict | None:
     is `groupId:artifactId`, value is `version`. Maven uses a `dependencyManagement`
     section + parent inheritance for actual version resolution, but for
     upgrade-impact analysis we only care about the versions actually
-    written in this pom — `<dependency>` entries without a `<version>`
+    written in this pom - `<dependency>` entries without a `<version>`
     child are silently skipped because we can't pin them without resolving
     the parent chain (out of scope for v1).
 
@@ -224,13 +224,13 @@ def _read_requirements_txt(path: Path) -> dict | None:
     """Parse a pip `requirements.txt` file.
 
     Pulls PEP 508 specs. Lines starting with `-r`, `-e`, `--index-url`,
-    etc. are skipped — those reference other files or configure pip,
+    etc. are skipped - those reference other files or configure pip,
     they're not packages. Comments (`#`-prefixed) are stripped. Empty
     constraints (e.g. `requests` with no version pin) get an empty string
     so callers can see the package was listed without a pin.
 
     Ecosystem is `pypi-requirements` to distinguish from pyproject's `pypi`
-    — they're both Python but represent different surfaces. Both can
+    - they're both Python but represent different surfaces. Both can
     coexist in one repo.
     """
     try:

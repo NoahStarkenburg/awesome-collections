@@ -20,7 +20,7 @@ def test_rename_path_updates_existing_row(conn):
     image_id = store.upsert_image(conn, path="/a/old.png", mtime=1.0, size=1)
     status = store.rename_path(conn, "/a/old.png", "/b/new.png")
     assert status == "renamed"
-    # Same id, new path — the row was updated, not re-inserted.
+    # Same id, new path - the row was updated, not re-inserted.
     row = store.get_by_path(conn, "/b/new.png")
     assert row is not None
     assert row["id"] == image_id
@@ -56,7 +56,7 @@ def test_rename_path_returns_conflict_when_new_path_taken(conn):
 
 
 def test_rename_path_to_self_is_a_renamed_noop(conn):
-    """Renaming a row to its current path is allowed — the conflict check
+    """Renaming a row to its current path is allowed - the conflict check
     explicitly excludes the same-row case so a re-run is idempotent."""
     store.upsert_image(conn, path="/a/x.png", mtime=1.0, size=1)
     status = store.rename_path(conn, "/a/x.png", "/a/x.png")

@@ -35,7 +35,7 @@ def test_parse_exif_datetime_round_trip():
 
 
 def test_parse_exif_datetime_rejects_zero_sentinel():
-    """EXIF uses `0000:00:00 00:00:00` as 'unset' — must return None."""
+    """EXIF uses `0000:00:00 00:00:00` as 'unset' - must return None."""
     assert exif._parse_exif_datetime("0000:00:00 00:00:00") is None
 
 
@@ -83,7 +83,7 @@ def test_index_directory_stores_captured_at(tmp_path: Path):
 
 
 def test_init_db_idempotent_with_captured_at_column(tmp_path: Path):
-    """Opening twice must not error — the captured_at migration is idempotent."""
+    """Opening twice must not error - the captured_at migration is idempotent."""
     db = tmp_path / "test.db"
     store.init_db(db).close()
     store.init_db(db).close()
